@@ -1,0 +1,131 @@
+# Кеширование и временные файлы Python
+*.py[cod]
+__pycache__/
+**/__pycache__/
+*.swp
+*.swo
+
+# Логи
+*.log
+
+# Папки окружения виртуальных машин
+env/
+venv/
+ENV/
+.venv/
+env.bak/
+
+# Файлы IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Файлы тестов и покрытий
+htmlcov/
+.tox/
+.nox/
+coverage.*
+.cache
+pytest_cache/
+
+# Инструменты сборки/дистрибуции
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Конфигурации пакетов
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# Базы данных SQLite
+*.sqlite3
+
+# Деплой-файлы
+*.env
+.env.*
+.local/
+*.bak
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# PyInstaller
+*.spec
+
+# Модули C и C++
+*.so
+*.dll
+*.dylib
+
+# Разное
+node_modules/
+*.DS_Store
+Thumbs.db
+
+# Включает все стандартные Python файлы и папки
+*.pyc
+__pycache__/
+*.log
+
+# Виртуальное окружение
+env/
+venv/
+
+# Конфигурации среды
+*.env
+*.env.*
+
+# Файлы миграций
+*/migrations/*.py[cod]
+
+# Базы данных
+*.sqlite3
+
+# Статические и медиа-файлы
+staticfiles/
+media/
+
+# Общие файлы Python
+*.pyc
+__pycache__/
+
+# Файлы Docker
+docker-compose.override.yml
+Dockerfile
+
+# Логи и временные файлы
+*.log
+*.pid
+
+# Виртуальное окружение
+env/
+venv/
+
+# Статические файлы и базы данных
+static/
+media/
+*.sqlite3
+
+# Общие файлы Python
+*.pyc
+__pycache__/
+
+# Файлы Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Виртуальное окружение
+env/
+venv/
+
+# Логи и временные файлы
+*.log
+*.pid

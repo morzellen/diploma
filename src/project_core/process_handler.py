@@ -1,9 +1,9 @@
 import os
 import shutil
-import logging
-from src.project_core.name_generator import NameGenerator
-from src.utils.name_translator import NameTranslator
-from src.utils.temp_cleaner import clear_temp
+from utils.logger import logger
+from project_core.name_generator import NameGenerator
+from utils.name_translator import NameTranslator
+from utils.temp_cleaner import clear_temp
 
 class ProcessHandler:
     def __init__(self, src_lang='en', dest_lang='ru'):
@@ -20,16 +20,16 @@ class ProcessHandler:
 
         for i, file in enumerate(image_path):
             image_name = os.path.basename(file.name)
-            logging.info(f"\n{i}) Работаем над файлом: {image_name}")
+            logger.info(f"\n{i}) Работаем над файлом: {image_name}")
 
             try:
                 used_generator = NameGenerator(model_name)
                 suggested_name = used_generator.generate_name(file.name, image_name)  # Получаем новое имя
-                logging.info(f"    Имя файла, предложенное моделью {model_name}: {suggested_name}")
+                logger.info(f"Имя файла, предложенное моделью {model_name}: {suggested_name}")
                 paths.append(file.name)
                 suggestions.append(suggested_name)
             except ValueError as e:
-                logging.error(f"    Ошибка обработки файла {image_name}: {e}")
+                logger.error(f"Ошибка обработки файла {image_name}: {e}")
                 continue
 
             # Переводим имя файла
@@ -46,10 +46,15 @@ class ProcessHandler:
             translated_suggestions.append(translated_name)
 
         return paths, suggestions, translated_suggestions
-
+        
     # Сохранение изображений после редактирования
     def save_images(self, translated_names, image_paths, save_dir):
+        
         results = []
+
+        def results_append(s):
+            logger.info(s)
+            results.append(s)
 
         # Создаём папку renamed_images, если обрабатывается несколько файлов
         if len(image_paths) > 1:
@@ -58,7 +63,6 @@ class ProcessHandler:
 
         for translated_name, image_path in zip(translated_names, image_paths):
             if not os.path.exists(image_path):  # Проверяем, существует ли исходный файл
-                logging.error(f"    Ошибка: файл не найден {image_path}")
                 results.append(f"Ошибка: файл не найден {image_path}")
                 continue
 
@@ -67,21 +71,17 @@ class ProcessHandler:
 
             try:
                 shutil.move(image_path, save_dir)
-                logging.info(f"    Файл успешно сохранён: {save_dir}")
-                results.append(f"Файл успешно сохранён: {save_dir}")
+                results_append(f"Файл успешно сохранён: {save_dir}")
             except Exception as e:
-                logging.error(f"    Ошибка при перемещении файла {image_path}: {e}")
-                results.append(f"Ошибка при перемещении файла {image_path}: {e}")
+                results_append(f"Ошибка при перемещении файла {image_path}: {e}")
 
                 # Если перемещение не удалось, копируем файл
                 try:
                     shutil.copy(image_path, save_dir)
                     os.remove(image_path)  # Удаляем оригинал
-                    logging.info(f"    Файл скопирован и сохранён: {save_dir}")
-                    results.append(f"Файл скопирован и сохранён: {save_dir}")
+                    results_append(f"Файл скопирован и сохранён: {save_dir}")
                 except Exception as e2:
-                    logging.error(f"    Ошибка при копировании файла {image_path}: {e2}")
-                    results.append(f"Ошибка при копировании файла {image_path}: {e2}")
+                    results_append(f"Ошибка при копировании файла {image_path}: {e2}")
         
         clear_temp()  # Очищаем временные файлы
         return results  # Возвращаем результаты для отображения

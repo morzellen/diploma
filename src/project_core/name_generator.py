@@ -1,5 +1,5 @@
-import logging
-from src.project_core.model_creator import ModelCreator
+from utils.logger import logger
+from project_core.model_creator import ModelCreator
 from PIL import Image, UnidentifiedImageError
 
 class NameGenerator():
@@ -27,10 +27,10 @@ class NameGenerator():
             caption_words = caption.split()  # Разделяем наименование на слова
             filtered_caption = " ".join([word for word in caption_words if word.lower() not in unwanted_words])
 
-            logging.info(f"    Сгенерировано наименование для {image_name}: {filtered_caption}")
+            logger.info(f"Сгенерировано наименование для {image_name}: {filtered_caption}")
             return filtered_caption
         except Exception as e:
-            logging.error(f"    Ошибка при генерации наименования для {image_name}: {e}")
+            logger.error(f"Ошибка при генерации наименования для {image_name}: {e}")
             raise
     
     def process_image(self, image_path, image_name):
@@ -40,17 +40,17 @@ class NameGenerator():
 
             # Конвертация изображения в RGB формат, если необходимо
             if image.mode != 'RGB':
-                logging.info(f"    {image_name} конвертирован в RGB")
+                logger.info(f"{image_name} конвертирован в RGB")
                 image.convert('RGB')
             
             # Обрабатываем изображение с помощью соответствующего процессора
             inputs = self.used_model.processor(images=image, return_tensors="pt").to(self.device)
 
-            logging.info(f"    {image_name} обрабатывается")
+            logger.info(f"{image_name} обрабатывается")
             return inputs
         except UnidentifiedImageError:
-            logging.error(f"    Невозможно открыть {image_name}")
+            logger.error(f"Невозможно открыть {image_name}")
             raise
         except Exception as e:
-            logging.error(f"    Ошибка при обработке {image_name}: {e}")
+            logger.error(f"Ошибка при обработке {image_name}: {e}")
             raise

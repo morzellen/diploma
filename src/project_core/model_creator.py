@@ -1,5 +1,5 @@
 import torch
-import logging
+from utils.logger import logger
 from transformers import (AutoProcessor, AutoTokenizer, AutoImageProcessor,
                           AutoModelForCausalLM, BlipForConditionalGeneration,
                           VisionEncoderDecoderModel)
@@ -13,7 +13,7 @@ class ModelCreator:
     def _get_device(self):
         """Определяем доступное устройство для модели"""
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        logging.info(f"    Используемое устройство: {device}")
+        logger.info(f"Используемое устройство: {device}")
         return device
     
     def _load_model(self):
@@ -43,9 +43,9 @@ class ModelCreator:
             if model_class in [AutoModelForCausalLM, VisionEncoderDecoderModel]:
                 tokenizer = AutoTokenizer.from_pretrained(model_path)
             
-            logging.info(f"    Модель {self.model_name} успешно загружена")
+            logger.info(f"Модель {self.model_name} успешно загружена")
             return processor, model, tokenizer
         except Exception as e:
-            logging.error(f"    Ошибка при загрузке модели: {e}")
+            logger.error(f"Ошибка при загрузке модели: {e}")
             raise
     

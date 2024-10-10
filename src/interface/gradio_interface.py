@@ -1,7 +1,7 @@
 import os
 import gradio as gr
-import logging
-from src.project_core.process_handler import ProcessHandler
+from utils.logger import logger
+from project_core.process_handler import ProcessHandler
 
 used_handler = ProcessHandler()
 
@@ -68,22 +68,22 @@ def gradio_interface():
         # Функция обработки изображений
         def process_fn(files, model_name):
             if not files:
-                logging.warning("Не загружены файлы для обработки.")
+                logger.warning("Не загружены файлы для обработки.")
                 return "Пожалуйста, загрузите файлы для обработки."
 
             try:
                 paths, suggestions, translated_suggestions = used_handler.handle_images(files, model_name)
             except Exception as e:
-                logging.error(f"    Ошибка обработки изображений: {e}")
-                return f"   Ошибка обработки изображений: {e}"
+                logger.error(f"Ошибка обработки изображений: {e}")
+                return f"Ошибка обработки изображений: {e}"
 
             paths_str = "\n".join([f"{i}) {value}" for i, value in enumerate(paths)])
             suggestions_str = "\n".join([f"{i}) {value}" for i, value in enumerate(suggestions)])
             translated_suggestions_str = "\n".join([f"{i}) {value}" for i, value in enumerate(translated_suggestions)])
             
-            logging.info(f"    Пути файлов:\n{paths_str}")
-            logging.info(f"    Предложенные имена {model_name}:\n{suggestions_str}")
-            logging.info(f"    Предложенные названия на {used_handler.dest_lang} языке:\n{translated_suggestions_str}")
+            logger.info(f"Пути файлов:\n{paths_str}")
+            logger.info(f"Предложенные имена {model_name}:\n{suggestions_str}")
+            logger.info(f"Предложенные названия на {used_handler.dest_lang} языке:\n{translated_suggestions_str}")
 
             # Формируем строки вида: (оригинальное имя) переведённое имя
             edit_list = []
@@ -102,10 +102,10 @@ def gradio_interface():
         # Функция сохранения изображений
         def save_fn(edit_list, files, save_dir):
             if not files:
-                logging.warning("    Не загружены файлы для сохранения.")
+                logger.warning("Не загружены файлы для сохранения.")
                 return "Пожалуйста, загрузите файлы перед сохранением."
             if not save_dir:
-                logging.warning("    Не указана директория для сохранения.")
+                logger.warning("Не указана директория для сохранения.")
                 return "Пожалуйста, укажите директорию для сохранения изображений."
 
             # Получаем список переведённых имён
@@ -113,19 +113,19 @@ def gradio_interface():
             try:
                 translated_names = [edited_name.split(") ")[1] for edited_name in edited_names]  # Извлекаем только переведённые имена
             except IndexError:
-                logging.error("    Ошибка при парсинге имён для сохранения.")
+                logger.error("Ошибка при парсинге имён для сохранения.")
                 return "Ошибка в именах. Пожалуйста, проверьте корректность названий."
 
             image_paths = [file.name for file in files]
 
-            logging.info(f"    Сохраняем файлы с именами: {translated_names}")
-            logging.info(f"    Сохраняем файлы в директорию: {save_dir}")
+            logger.info(f"Сохраняем файлы с именами: {translated_names}")
+            logger.info(f"Сохраняем файлы в директорию: {save_dir}")
 
             try:
                 saved_results = used_handler.save_images(translated_names, image_paths, save_dir)
                 return "\n".join(saved_results)
             except Exception as e:
-                logging.error(f"    Ошибка при сохранении изображений: {e}")
+                logger.error(f"Ошибка при сохранении изображений: {e}")
                 return f"Ошибка сохранения: {e}"
 
         save_btn.click(

@@ -27,7 +27,7 @@ class ModelCreator:
         }
 
         if self.model_name not in model_mapping:
-            raise ValueError(f"    Модель {self.model_name} не поддерживается")
+            raise ValueError(f"Модель {self.model_name} не поддерживается")
 
         model_path, model_class = model_mapping[self.model_name]
 

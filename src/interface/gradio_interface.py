@@ -26,11 +26,7 @@ def gradio_interface():
             image_outputs = gr.Gallery(label="Предпросмотр изображений")
 
             def image_preview(files):
-                if not files:
-                    return []
-                image_paths = [file.name for file in files]
-                image_names = [os.path.basename(file.name) for file in files]
-                return list(zip(image_paths, image_names))
+                return [(file.name, os.path.basename(file.name)) for file in files]
 
             files.change(
                 image_preview,
@@ -50,7 +46,7 @@ def gradio_interface():
                     label="Укажите директорию для сохранения изображений", 
                     lines=1, 
                     placeholder="Введите путь к директории",
-                    value="E:\Downloads\фото"
+                    # value="E:\Downloads\фото"
                 )
 
                 save_btn = gr.Button("Сохранить изображения", size='sm')

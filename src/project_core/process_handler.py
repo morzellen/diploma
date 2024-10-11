@@ -18,12 +18,13 @@ class ProcessHandler:
         paths = []
         name_count = {}  # Для отслеживания дублирующихся имён
 
+        used_generator = NameGenerator(model_name)
+        
         for i, file in enumerate(image_path):
             image_name = os.path.basename(file.name)
             logger.info(f"\n{i}) Работаем над файлом: {image_name}")
 
             try:
-                used_generator = NameGenerator(model_name)
                 suggested_name = used_generator.generate_name(file.name, image_name)  # Получаем новое имя
                 logger.info(f"Имя файла, предложенное моделью {model_name}: {suggested_name}")
                 paths.append(file.name)

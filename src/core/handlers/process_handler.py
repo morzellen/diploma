@@ -1,51 +1,63 @@
 import os
 import shutil
-from modules.generators.caption import CaptionGenerator
-from modules.generators.segment import SegmentGenerator
-from modules.generators.translating import TranslationGenerator
-from modules.utils import logger
-from modules.utils import clear_temp
 
+from core.generators.caption_generator import CaptionGenerator
+from core.generators.segment_generator import SegmentGenerator
+from core.generators.translation_generator import TranslationGenerator
+from core.utils.get_logger import logger
+from core.utils.utils import clear_temp
+from core.utils.get_device import device
+    
 class RenamingProcessHandler:
     """
     Класс для обработки изображений и сохранения их с новым именем.
 
     """
     # Обработка изображений
-    def handle_photo(photo_tuple, captioning_model_name, device, translation_model_name, src_lang, tgt_lang_str):
-        originals = []
-        translated_originals = []
+    @classmethod
+    def handle_photo_generator(cls, photo_tuple, captioning_model_name, translation_model_name, src_lang, tgt_lang_str, 
+                             progress=None, check_cancelled=None):
+        """Генератор для пошаговой обработки фото с выдачей промежуточных результатов"""
         name_count = {}  # Для отслеживания дублирующихся имён
 
         used_generator = CaptionGenerator(captioning_model_name, device)
         used_translator = TranslationGenerator(translation_model_name, device)
 
+        total_photos = len(photo_tuple)
+        
         for i, photo_tuple in enumerate(photo_tuple):
-            photo_path = photo_tuple[0]  # Извлекаем путь к файлу из кортежа
+            if check_cancelled and check_cancelled():
+                logger.info("Операция была отменена пользователем")
+                return
+
+            if progress is not None:
+                progress(0.2 + (0.6 * i / total_photos), desc=f"Обработка фото {i+1} из {total_photos}...")
+            
+            photo_path = photo_tuple[0]
             photo_name = os.path.basename(photo_path)
-            logger.info(f"{i}) Работаем над файлом: {photo_name}")
-
+            
+            yield f"Обработка файла: {photo_name}"
+            
             try:
-                original_name = used_generator.generate_caption(photo_path, photo_name)  # Получаем новое имя
+                original_name = used_generator.generate_caption(photo_path, photo_name)
                 logger.info(f"Имя файла, предложенное моделью {captioning_model_name}: {original_name}")
-                originals.append(original_name)
-            except ValueError as e:
+                
+                yield f"Сгенерировано описание для {photo_name}"
+                
+                translated_name = used_translator.translate(original_name, src_lang, tgt_lang_str)
+                
+                if translated_name in name_count:
+                    name_count[translated_name] += 1
+                    translated_name = f"{translated_name} {name_count[translated_name]}"
+                else:
+                    name_count[translated_name] = 1
+
+                yield (original_name, translated_name)
+                
+            except Exception as e:
                 logger.error(f"Ошибка обработки файла {photo_name}: {e}")
+                yield f"Ошибка обработки файла {photo_name}: {e}"
                 continue
-
-            # Переводим имя файла
-            translated_name = used_translator.translate(original_name, src_lang, tgt_lang_str)
-
-            # Проверка на дублирующиеся имена
-            if translated_name in name_count:
-                name_count[translated_name] += 1
-                translated_name = f"{translated_name} {name_count[translated_name]}"
-            else:
-                name_count[translated_name] = 1
-
-            translated_originals.append(translated_name)
-
-        return originals, translated_originals
         
     # Сохранение изображений после редактирования
     def save_photo(tgt_names, photo_paths, save_dir):
@@ -76,13 +88,12 @@ class RenamingProcessHandler:
         clear_temp()  # Очищаем временные файлы
         return saved_results  # Возвращаем результаты для отображения
 
-class SegmentationProcessHandler:
-    def sfsd():
-        pass
+class ClassificationProcessHandler:
+    """
+    Класс для обработки изображений и сохранения их с новым именем.
 
-    def gkfskfg():
-        pass
-
+    """
+    
     def handle(segmentation_model_name):
         used_generator = SegmentGenerator(segmentation_model_name)
 

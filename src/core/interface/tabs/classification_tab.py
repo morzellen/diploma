@@ -1,29 +1,34 @@
 import os
+import sys
+
 import gradio as gr
-from core.handlers.process_handler import RenamingProcessHandler
+from PyQt5.QtWidgets import QApplication, QFileDialog
+
 from core.utils.get_logger import logger
-from core.constants.models import SEGMENTATION_MODEL_NAMES, TRANSLATION_MODEL_NAMES
+from core.handlers.classification_handler import ClassificationHandler
 from core.constants.web import TRANSLATION_LANGUAGES
+from core.constants.models import SEGMENTATION_MODEL_NAMES, TRANSLATION_MODEL_NAMES
+
+# Глобальная переменная для отслеживания состояния отмены
+processing_cancelled = False
 
 def create_classification_tab():
     with gr.Blocks() as classification_tab:
         with gr.Row():
             with gr.Column(scale=6):
                 with gr.Row():
-                    segmentation_model_name = gr.Dropdown(
-                        choices=list(SEGMENTATION_MODEL_NAMES.keys()),
+                    segmentation_model = gr.Dropdown(
                         label="Выберите модель для классификации",
-                        value="blip-image-captioning-base",
+                        choices=list(SEGMENTATION_MODEL_NAMES.keys()),
+                        value="Florence-2-base",
                         allow_custom_value=True
                     )
-
-                    translation_model_name = gr.Dropdown(
-                        choices=list(TRANSLATION_MODEL_NAMES.keys()),
+                    translation_model = gr.Dropdown(
                         label="Выберите модель для перевода",
+                        choices=list(TRANSLATION_MODEL_NAMES.keys()),
                         value="mbart-large-50-many-to-many-mmt",
                         allow_custom_value=True
                     )
-
                     tgt_lang_str = gr.Dropdown(
                         label='Выберите целевой язык перевода',
                         choices=list(TRANSLATION_LANGUAGES.keys()),
@@ -31,121 +36,240 @@ def create_classification_tab():
                         allow_custom_value=True
                     )
 
-
+                save_dir = gr.Textbox(
+                    label="Директория для сохранения классов с фото", 
+                    value="../classification_results",
+                    max_length=None,
+                    interactive=False
+                )
 
                 with gr.Row():
                     photo_tuple = gr.Gallery(
                         label="Загрузите фото",
                         format="jpeg",
-                        #file_types=["image"],
-                        height=None,
+                        height="auto",
                         scale=1,
                         interactive=True,
+                        columns=3,
+                        object_fit="cover",
+                        show_download_button=False,
+                        show_share_button=False,
+                        show_fullscreen_button=False,
                     )
-                    def _give_caption(photo_tuple):
+
+                    classes_df = gr.Dataframe(
+                        headers=["№", "Класс"],
+                        datatype=["number", "str"],
+                        col_count=(2, "fixed"),
+                        row_count=(0, "dynamic"),
+                        interactive=[False, True],
+                        label="Классы изображений",
+                        wrap=True,
+                        value=[]
+                    )
+
+                    def _initialize_gallery(photo_tuple):
                         if not photo_tuple:
-                            return []
+                            return [], []
                         
-                        # Возвращаем список кортежей (путь файла, индексированный basename)
-                        return [(photo_tuple[0], f'{i}) {os.path.basename(photo_tuple[0])}') for i, photo_tuple in enumerate(photo_tuple, start=1)]
+                        photo_list = [(photo_tuple[0], f'{i}) {os.path.basename(photo_tuple[0])}') 
+                                    for i, photo_tuple in enumerate(photo_tuple, start=1)]
+                        
+                        df_data = [[i, ""] for i in range(1, len(photo_tuple) + 1)]
+                        
+                        return photo_list, df_data
+
                     photo_tuple.upload(
-                        _give_caption,
+                        _initialize_gallery,
                         inputs=photo_tuple,
-                        outputs=photo_tuple,
+                        outputs=[photo_tuple, classes_df],
                         show_progress=False
                     )
-                    translated_originals_str = gr.Textbox(
-                        label="Целевые имена",
-                        placeholder="Введите новые названия",
-                        max_length=None,
-                        scale=2,
-                        info='Редактируйте, если необходимо, не трогая "i) "'
-                    )
 
-                process_btn = gr.Button("Переименовать фото", size='sm')
-                # Функция обработки изображений
-                def process_fn(photo_tuple, captioning_model_name, translation_model_name, tgt_lang_str):
-                    if not photo_tuple:
-                        logger.warning("Не загружены фото для обработки.")
-                        return 'Не загружены фото для обработки.'
-                    
-                    try:
-                        originals, translated_originals = RenamingProcessHandler.handle_photo(photo_tuple, captioning_model_name, translation_model_name, "en_XX", tgt_lang_str)
-                    except Exception as e:
-                        logger.error(f"Ошибка обработки фото: {e}")
-                        return f"Ошибка обработки фото: {e}"
-
-                    originals_str = "\n".join([f"{i}) {original}" for i, original in enumerate(originals, start=1)])
-                    logger.info(f"Предложенные имена {captioning_model_name}:\n{originals_str}")
-
-                    translated_originals_str = "\n".join([f"{i}) {translated_original}" for i, translated_original in enumerate(translated_originals, start=1)])
-                    logger.info(f"Предложенные названия на {tgt_lang_str} языке:\n{translated_originals_str}")
-
-                    return translated_originals_str
-                process_btn.click(
-                    process_fn, 
-                    inputs=[photo_tuple, segmentation_model_name, translation_model_name, tgt_lang_str], 
-                    outputs=translated_originals_str
-                )
-
-                with gr.Row():
                     with gr.Column():
-                        saved_results = gr.Textbox(label="Результаты сохранения", max_length=None)
-                    with gr.Column():
-                        save_dir = gr.Textbox(
-                            label="Укажите директорию для сохранения фото", 
-                            placeholder="Введите путь к директории",
-                            value="C:\Flash\pics",
-                            max_length=None
+                        classify_btn = gr.Button("Классифицировать", size='sm', variant="primary")
+                        cancel_btn = gr.Button("Отменить", size='sm', variant="stop", visible=False)
+
+                        def process_fn(photo_tuple, segmentation_model, translation_model, tgt_lang_str, progress=gr.Progress()):
+                            global processing_cancelled
+                            processing_cancelled = False
+                            
+                            if not photo_tuple:
+                                logger.warning("Не загружены фото для обработки.")
+                                gr.Warning("Не загружены фото для обработки")
+                                return [], []
+                            
+
+                            progress(0, desc="Начало классификации...")
+                            gr.Info("Начало классификации фотографий")
+                            
+                            originals, translated_classes = [], []
+                            current_progress = []
+                            
+                            for result in ClassificationHandler.handle_photo_generator(
+                                photo_tuple, 
+                                segmentation_model, 
+                                translation_model, 
+                                "en_XX", 
+                                tgt_lang_str,
+                                progress,
+                                lambda: processing_cancelled
+                            ):
+                                if isinstance(result, tuple):
+                                    original, translated = result
+                                    originals.append(original)
+                                    translated_classes.append(translated)
+                                    current_progress = [[i+1, name] for i, name in enumerate(translated_classes)]
+                                    yield current_progress, photo_tuple
+                                else:
+                                    if "Ошибка" in result:
+                                        gr.Warning(result)
+                                    yield current_progress, photo_tuple
+
+                            if processing_cancelled:
+                                gr.Warning("Операция была отменена пользователем")
+                                yield current_progress, photo_tuple
+                                return [], []
+
+
+                            progress(1.0, desc="Готово!")
+                            gr.Info("Классификация завершена")
+                            yield current_progress, photo_tuple
+
+                        def toggle_buttons(is_processing):
+                            return {
+                                classify_btn: gr.update(interactive=not is_processing),
+                                cancel_btn: gr.update(visible=is_processing)
+                            }
+
+                        process_event = classify_btn.click(
+                            fn=toggle_buttons,
+                            inputs=[gr.State(True)],
+                            outputs=[classify_btn, cancel_btn],
+                        ).then(
+                            process_fn,
+                            inputs=[photo_tuple, segmentation_model, translation_model, tgt_lang_str],
+                            outputs=[classes_df, photo_tuple],
+                        ).then(
+                            toggle_buttons,
+                            inputs=[gr.State(False)],
+                            outputs=[classify_btn, cancel_btn]
                         )
-                        save_btn = gr.Button("Сохранить фото", size='sm')
-                        # Функция сохранения изображений
-                        def save_fn(translated_originals_str, photo_tuple, save_dir):
+
+                        def cancel_fn():
+                            global processing_cancelled
+                            processing_cancelled = True
+                            logger.info("Запрошена отмена операции")
+                            gr.Info("Запрошена отмена операции")
+                            return None
+
+                        cancel_btn.click(
+                            fn=cancel_fn,
+                            inputs=None,
+                            outputs=None,
+                            cancels=[process_event]
+                        )
+
+                        select_dir_btn = gr.Button("Выбрать директорию", size='sm')
+                
+                        def select_folder():
+                            app = QApplication(sys.argv)
+                            folder_path = QFileDialog.getExistingDirectory(None, "Выберите папку для сохранения классов")
+                            app.quit()
+                            return folder_path
+                        
+                        select_dir_btn.click(
+                            fn=select_folder,
+                            inputs=None,
+                            outputs=save_dir,
+                        )
+
+                        save_btn = gr.Button("Сохранить классы", size='sm')
+
+                        def save_fn(df_data, photo_tuple, save_dir, progress=gr.Progress()):  # Добавили прогресс-бар
                             if not photo_tuple:
                                 logger.warning("Не загружены фото для сохранения.")
-                                return 'Не загружены фото для сохранения.'
-                            
-                            if not save_dir:
-                                logger.warning("Не указана директория для сохранения фото.")
-                                return "Не указана директория для сохранения фото."
-                            
-                            try:
-                                translated_originals = translated_originals_str.split('\n') # Получаем список переведённых имён
-                                tgt_names = [translated_original.split(") ")[1] for translated_original in translated_originals]  # Извлекаем только переведённые имена
-
-                                logger.info(f"Сохраняем фото с именами: {tgt_names}")
-                            except IndexError:
-                                logger.warning("Ошибка в именах. Пожалуйста, проверьте корректность названий.")
-                                return "Ошибка в именах. Пожалуйста, проверьте корректность названий."
-
-                            logger.info(f"Сохраняем фото в директорию: {save_dir}")
+                                gr.Warning("Не загружены фото для сохранения")
+                                return [], []  # Корректный возврат пустых списков
 
                             try:
-                                photo_paths = [photo_tuple[0] for photo_tuple in photo_tuple] # Получаем пути фото
-                                saved_results = RenamingProcessHandler.save_photo(tgt_names, photo_paths, save_dir) # Сохраняем фото и получаем список путей к ним
-                                return "\n".join(saved_results)
+                                progress(0, desc="Начало обработки...")
+                                
+                                # Проверка DataFrame
+                                if df_data.empty:
+                                    logger.warning("DataFrame пустой")
+                                    gr.Warning("Нет данных для сохранения")
+                                    return [], []
+
+                                # Получаем данные из DataFrame по именам столбцов
+                                class_names = df_data["Класс"].astype(str).str.strip().tolist()
+                                indices = df_data["№"].astype(int).tolist()
+
+                                photo_pairs = []
+                                has_empty_classes = False
+                                
+                                # Обрабатываем каждую запись
+                                for idx, class_name in zip(indices, class_names):
+                                    try:
+                                        photo_idx = idx - 1  # Конвертация в 0-based индекс
+                                        
+                                        if 0 <= photo_idx < len(photo_tuple):
+                                            # Получаем путь к файлу из Gallery
+                                            photo_item = photo_tuple[photo_idx]
+                                            photo_path = photo_item[0] if isinstance(photo_item, tuple) else photo_item
+                                            
+                                            # Обработка пустых классов
+                                            if not class_name:
+                                                class_name = f"Неизвестный_класс_{idx}"
+                                                has_empty_classes = True
+                                                
+                                            photo_pairs.append((photo_path, class_name))
+                                            
+                                    except (IndexError, ValueError) as e:
+                                        logger.warning(f"Ошибка обработки строки {idx}: {e}")
+                                        continue
+
+                                if not photo_pairs:
+                                    logger.warning("Нет валидных данных для сохранения")
+                                    gr.Warning("Нет данных для сохранения")
+                                    return [], []
+
+                                if has_empty_classes:
+                                    gr.Info("Некоторые классы были пустыми и заменены")
+
+                                # Сохраняем с прогрессом
+                                progress(0.3, desc="Сохранение файлов...")
+                                paths, classes = zip(*photo_pairs)
+                                saved_results = ClassificationHandler.save_photo(classes, paths, save_dir)
+                                
+                                # Статистика
+                                success_count = sum(1 for res in saved_results if "успешно" in res.lower())
+                                progress(0.8, desc="Формирование отчёта...")
+                                
+                                if success_count == len(photo_pairs):
+                                    gr.Info(f"Успешно сохранено {success_count} файлов")
+                                else:
+                                    gr.Warning(f"Проблемы при сохранении: {len(photo_pairs)-success_count} ошибок")
+
+                                progress(1.0, desc="Готово!")
+                                return [], []  # Корректный возврат
+
                             except Exception as e:
-                                logger.error(f"Ошибка сохранения фото: {e}")
-                                return f"Ошибка сохранения: {e}"
+                                logger.error(f"Критическая ошибка: {str(e)}", exc_info=True)
+                                gr.Warning(f"Ошибка сохранения: {str(e)}")
+                                progress(1.0, desc="Ошибка!")
+                                return [], []
+
                         save_btn.click(
-                            save_fn, 
-                            inputs=[translated_originals_str, photo_tuple, save_dir], 
-                            outputs=saved_results
+                            fn=save_fn, 
+                            inputs=[classes_df, photo_tuple, save_dir], 
+                            outputs=[photo_tuple, classes_df]
+                        ).then(
+                            lambda: None,  # Пустая функция для сброса progress bar
+                            None,
+                            None,
+                            js="() => {document.querySelector('.progress-bar').style.width = '0%';}"  # Сброс progress bar через JavaScript
                         )
-
-                        saved_results_clear_btn = gr.ClearButton(
-                            components=[saved_results],
-                            value="Очистить результаты сохранения",
-                            size='sm'
-                        )
-                        saved_results_clear_btn.click()
-
-
-#                 with gr.Column(scale=1):
-#                     description = gr.Textbox(
-#                         label="Описание и Пользовательские инструкции",
-#                         value=''' '''
-#                     )
 
         return classification_tab
     

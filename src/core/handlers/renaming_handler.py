@@ -2,13 +2,12 @@ import os
 import shutil
 
 from core.generators.caption_generator import CaptionGenerator
-from core.generators.segment_generator import SegmentGenerator
 from core.generators.translation_generator import TranslationGenerator
 from core.utils.get_logger import logger
 from core.utils.utils import clear_temp
 from core.utils.get_device import device
     
-class RenamingProcessHandler:
+class RenamingHandler:
     """
     Класс для обработки изображений и сохранения их с новым именем.
 
@@ -87,15 +86,3 @@ class RenamingProcessHandler:
         
         clear_temp()  # Очищаем временные файлы
         return saved_results  # Возвращаем результаты для отображения
-
-class ClassificationProcessHandler:
-    """
-    Класс для обработки изображений и сохранения их с новым именем.
-
-    """
-    
-    def handle(segmentation_model_name):
-        used_generator = SegmentGenerator(segmentation_model_name)
-
-    def save_folders(translated_):
-        pass

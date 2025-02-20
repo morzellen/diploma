@@ -93,3 +93,9 @@ Thumbs.db
 # Логи и временные файлы
 *.pid
 src/test.py
+
+classification_results
+renaming_results
+src_2
+tests
+diploma.rar

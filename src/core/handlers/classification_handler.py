@@ -1,69 +1,91 @@
-# class RenamingProcessHandler:
-#     """
-#     Класс для обработки изображений и сохранения их с новым именем.
+import os
+import shutil
 
-#     """
-#     # Обработка изображений
-#     def handle_photo(device, photo_tuple, captioning_model_name, translation_model_name, src_lang, tgt_lang_str):
-#         originals = []
-#         translated_originals = []
-#         name_count = {}  # Для отслеживания дублирующихся имён
+from core.generators.segment_generator import SegmentGenerator
+from core.generators.translation_generator import TranslationGenerator
+from core.utils.get_logger import logger
+from core.utils.utils import clear_temp
+from core.utils.get_device import device
 
-#         used_generator = CaptionGenerator(captioning_model_name, device)
-#         used_translator = TranslationGenerator(translation_model_name, device)
+class ClassificationHandler:
+    """
+    Класс для обработки изображений и их классификации.
+    """
+    
+    @classmethod
+    def handle_photo_generator(cls, photo_tuple, segmentation_model_name, translation_model_name, src_lang, tgt_lang_str, 
+                             progress=None, check_cancelled=None):
+        """Генератор для пошаговой обработки фото с классификацией"""
 
-#         for i, photo_tuple in enumerate(photo_tuple):
-#             photo_path = photo_tuple[0]  # Извлекаем путь к файлу из кортежа
-#             photo_name = os.path.basename(photo_path)
-#             logger.info(f"{i}) Работаем над файлом: {photo_name}")
+        used_generator = SegmentGenerator(segmentation_model_name, device)
+        used_translator = TranslationGenerator(translation_model_name, device)
 
-#             try:
-#                 original_name = used_generator.generate_caption(photo_path, photo_name)  # Получаем новое имя
-#                 logger.info(f"Имя файла, предложенное моделью {captioning_model_name}: {original_name}")
-#                 originals.append(original_name)
-#             except ValueError as e:
-#                 logger.error(f"Ошибка обработки файла {photo_name}: {e}")
-#                 continue
-
-#             # Переводим имя файла
-#             translated_name = used_translator.translate(original_name, src_lang, tgt_lang_str)
-
-#             # Проверка на дублирующиеся имена
-#             if translated_name in name_count:
-#                 name_count[translated_name] += 1
-#                 translated_name = f"{translated_name} {name_count[translated_name]}"
-#             else:
-#                 name_count[translated_name] = 1
-
-#             translated_originals.append(translated_name)
-
-#         return originals, translated_originals
+        total_photos = len(photo_tuple)
         
-#     # Сохранение изображений после редактирования
-#     def save_photo(tgt_names, photo_paths, save_dir):
-#         saved_results = []
+        for i, photo_tuple in enumerate(photo_tuple):
+            if check_cancelled and check_cancelled():
+                logger.info("Операция была отменена пользователем")
+                return
 
-#         # Создаём папку renamed_photos, если обрабатывается несколько файлов
-#         if len(photo_paths) > 1:
-#             save_dir = os.path.join(save_dir, 'renamed_photos')
-#             os.makedirs(save_dir, exist_ok=True)
+            if progress is not None:
+                progress(0.2 + (0.6 * i / total_photos), desc=f"Обработка фото {i+1} из {total_photos}...")
+            
+            photo_path = photo_tuple[0]
+            photo_name = os.path.basename(photo_path)
+            
+            yield f"Обработка файла: {photo_name}"
+            
+            try:
+                # Получаем сегменты изображения
+                detections = used_generator.generate_segments(photo_path, photo_name)
+                
+                # Находим главный объект
+                main_object = used_generator.get_main_object(detections)
+                logger.info(f"Основной объект на фото {photo_name}: {main_object}")
+                
+                yield f"Определен основной объект для {photo_name}"
+                
+                # Переводим название класса
+                translated_class = used_translator.translate(main_object, src_lang, tgt_lang_str)
 
-#         for tgt_name, photo_path in zip(tgt_names, photo_paths):
-#             if not os.path.exists(photo_path):  # Проверяем, существует ли исходный файл
-#                 logger.warning(f"Ошибка: файл не найден {photo_path}")
-#                 saved_results.append(f"Ошибка: файл не найден {photo_path}")
-#                 continue
+                yield (main_object, translated_class)
+                
+            except Exception as e:
+                logger.error(f"Ошибка обработки файла {photo_name}: {e}")
+                yield f"Ошибка обработки файла {photo_name}: {e}"
+                continue
 
-#             photo_extension = os.path.splitext(photo_path)[1]  # Получаем расширение файла
-#             save_dir_path = os.path.join(save_dir, tgt_name.strip() + photo_extension)  # Новый путь с учётом имени и расширения
+    @staticmethod
+    def save_photo(class_names, photo_paths, save_dir):
+        """Сохранение классифицированных изображений по папкам"""
+        saved_results = []
 
-#             try:
-#                 shutil.move(photo_path, save_dir_path)
-#                 logger.info(f"Файл успешно сохранён: {save_dir_path}")
-#                 saved_results.append(f"Файл успешно сохранён: {save_dir_path}")
-#                 clear_temp()  # Очищаем временные файлы
-#             except Exception as e:
-#                 logger.error(f"Ошибка при перемещении файла {photo_path}: {e}")
-#                 saved_results.append(f"Ошибка при перемещении файла {photo_path}: {e}")
+        # Создаём корневую папку для классифицированных фото
+        save_dir = os.path.join(save_dir, 'classified_photos')
+        os.makedirs(save_dir, exist_ok=True)
+
+        for class_name, photo_path in zip(class_names, photo_paths):
+            if not os.path.exists(photo_path):
+                logger.warning(f"Ошибка: файл не найден {photo_path}")
+                saved_results.append(f"Ошибка: файл не найден {photo_path}")
+                continue
+
+            # Создаём папку для класса
+            class_dir = os.path.join(save_dir, class_name)
+            os.makedirs(class_dir, exist_ok=True)
+
+            # Копируем файл в соответствующую папку
+            photo_name = os.path.basename(photo_path)
+            save_path = os.path.join(class_dir, photo_name)
+
+            try:
+                shutil.move(photo_path, save_path)
+                logger.info(f"Файл успешно сохранён: {save_path}")
+                saved_results.append(f"Файл успешно сохранён: {save_path}")
+            except Exception as e:
+                logger.error(f"Ошибка при перемещении файла {photo_path}: {e}")
+                saved_results.append(f"Ошибка при перемещении файла {photo_path}: {e}")
         
-#         return saved_results  # Возвращаем результаты для отображения
+        clear_temp()  # Очищаем временные файлы
+        return saved_results
+    

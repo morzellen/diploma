@@ -1,6 +1,9 @@
 from core.utils.get_logger import logger
 from core.constants.models import SEGMENTATION_MODEL_NAMES
-from transformers import (AutoProcessor)
+from transformers import (
+    AutoProcessor, 
+    AutoModelForCausalLM
+)
 
 class SegmentationModelCreator:
     def __init__(self, segmentation_model_name, device):
@@ -18,9 +21,15 @@ class SegmentationModelCreator:
         model_class = globals()[model_class_name]
 
         try:
-            processor = AutoProcessor.from_pretrained(model_path)
+            processor = AutoProcessor.from_pretrained(
+                model_path,
+                trust_remote_code=True
+            )
 
-            model = model_class.from_pretrained(model_path).to(self.device)
+            model = model_class.from_pretrained(
+                model_path,
+                trust_remote_code=True
+            ).to(self.device)
             
             logger.info(f"Модель {self.segmentation_model_name} успешно загружена")
             return processor, model

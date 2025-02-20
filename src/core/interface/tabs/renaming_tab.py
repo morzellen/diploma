@@ -5,7 +5,7 @@ import gradio as gr
 from PyQt5.QtWidgets import QApplication, QFileDialog
 
 from core.utils.get_logger import logger
-from core.handlers.process_handler import RenamingProcessHandler
+from core.handlers.renaming_handler import RenamingHandler
 from core.constants.web import TRANSLATION_LANGUAGES
 from core.constants.models import CAPTIONING_MODEL_NAMES, TRANSLATION_MODEL_NAMES
 
@@ -37,8 +37,8 @@ def create_renaming_tab():
                     )
 
                 save_dir = gr.Textbox(
-                    label="Директория для сохранения фото", 
-                    value="../results",
+                    label="Директория для сохранения фото с новыми названиями", 
+                    value="../renaming_results",
                     max_length=None,
                     interactive=False
                 )
@@ -62,17 +62,17 @@ def create_renaming_tab():
                         headers=["№", "Новое имя"],
                         datatype=["number", "str"],
                         col_count=(2, "fixed"),
-                        row_count=(0, "fixed"),  # Запрещаем добавление строк
+                        row_count=(0, "dynamic"),
                         interactive=[False, True],  # Первый столбец нередактируемый
                         label="Целевые имена",
                         wrap=True,
-                        value=None  # Изначально пустой датафрейм
+                        value=[]  # Изначально пустой датафрейм
                     )
 
                     def _give_caption(photo_tuple):
                         if not photo_tuple:
                             # Очищаем датафрейм при отсутствии фотографий
-                            return [], None
+                            return [], []
                         
                         # Возвращаем список кортежей и обновленный датафрейм
                         photo_list = [(photo_tuple[0], f'{i}) {os.path.basename(photo_tuple[0])}') 
@@ -109,7 +109,7 @@ def create_renaming_tab():
                             originals, translated_originals = [], []
                             current_progress = []
                             
-                            for result in RenamingProcessHandler.handle_photo_generator(
+                            for result in RenamingHandler.handle_photo_generator(
                                 photo_tuple, 
                                 captioning_model_name, 
                                 translation_model_name, 
@@ -124,15 +124,15 @@ def create_renaming_tab():
                                     translated_originals.append(translated)
                                     # Обновляем DataFrame
                                     current_progress = [[i+1, name] for i, name in enumerate(translated_originals)]
-                                    yield current_progress
+                                    yield current_progress, photo_tuple
                                 else:  # Получено сообщение о статусе
                                     if "Ошибка" in result:
                                         gr.Warning(result)
-                                    yield current_progress
+                                    yield current_progress, photo_tuple
 
                             if processing_cancelled:
                                 gr.Warning("Операция была отменена пользователем")
-                                yield current_progress
+                                yield current_progress, photo_tuple
                                 return [], None
 
                             progress(0.8, desc="Форматирование результатов...")
@@ -146,7 +146,7 @@ def create_renaming_tab():
 
                             progress(1.0, desc="Готово!")
                             gr.Info("Обработка фотографий завершена")
-                            yield current_progress, current_progress
+                            yield current_progress, photo_tuple
 
                         def toggle_buttons(is_processing):
                             return {
@@ -198,55 +198,88 @@ def create_renaming_tab():
 
                         save_btn = gr.Button("Сохранить фото", size='sm')
                         # Функция сохранения изображений
-                        def save_fn(df_data, photo_tuple, save_dir):
+                        def save_fn(df_data, photo_tuple, save_dir, progress=gr.Progress()):
                             if not photo_tuple:
                                 logger.warning("Не загружены фото для сохранения.")
                                 gr.Warning("Не загружены фото для сохранения")
-                                return None, None
+                                return [], []
                             
                             try:
-                                # Проверяем DataFrame на пустоту и валидность данных
-                                if df_data is None or len(df_data) == 0:
-                                    logger.warning("DataFrame пустой")
+                                logger.info(f"DataFrame data: {df_data}")
+                                logger.info(f"Photo tuple: {photo_tuple}")
+                                
+                                progress(0, desc="Подготовка к сохранению...")
+                                
+                                photo_pairs = []
+                                has_empty_names = False
+                                
+                                # Обрабатываем данные из DataFrame
+                                for index, row in df_data.iterrows():
+                                    if not isinstance(row['№'], (int, float)):
+                                        continue
+                                        
+                                    logger.info(f"Processing row: {row}")
+                                    try:
+                                        idx = int(row['№']) - 1
+                                        new_name = str(row['Новое имя']).strip()
+                                        
+                                        if 0 <= idx < len(photo_tuple):
+                                            photo = photo_tuple[idx]
+                                            photo_path = photo[0] if isinstance(photo, tuple) else photo
+                                            
+                                            # Если имя пустое, используем индекс
+                                            if not new_name:
+                                                new_name = str(idx + 1)  # +1 для человекочитаемой нумерации
+                                                has_empty_names = True
+                                                
+                                            photo_pairs.append((photo_path, new_name))
+                                            logger.info(f"Added pair: {photo_path} -> {new_name}")
+                                    except (ValueError, TypeError) as e:
+                                        logger.warning(f"Ошибка обработки строки {row}: {e}")
+                                        continue
+                                
+                                if not photo_pairs:
+                                    logger.warning("Нет данных для сохранения")
                                     gr.Warning("Нет данных для сохранения")
-                                    return None, None
+                                    return [], []
                                 
-                                # Проверяем, что все имена заполнены
-                                tgt_names = [row[1] for row in df_data]
-                                if any(not name.strip() for name in tgt_names):
-                                    logger.warning("Обнаружены пустые имена файлов")
-                                    gr.Warning("Пожалуйста, заполните все имена файлов")
-                                    return None, None
+                                if has_empty_names:
+                                    gr.Info("Некоторые имена были пустыми и заменены на индексы")
                                 
-                                logger.info(f"Сохраняем фото с именами: {tgt_names}")
+                                progress(0.3, desc="Сохранение файлов...")
                                 
-                                photo_paths = [photo_tuple[0] for photo_tuple in photo_tuple]
-                                saved_results = RenamingProcessHandler.save_photo(tgt_names, photo_paths, save_dir)
+                                paths, names = zip(*photo_pairs)
+                                logger.info(f"Сохраняем фото:\nПути: {paths}\nИмена: {names}")
                                 
-                                # Подсчитываем успешные операции и ошибки
-                                success_count = 0
-                                for result in saved_results:
-                                    if "успешно" in result.lower():
-                                        success_count += 1
-                                    elif "файл не найден" in result.lower():
-                                        gr.Warning(result)
+                                saved_results = RenamingHandler.save_photo(names, paths, save_dir)
+                                success_count = sum(1 for result in saved_results if "успешно" in result.lower())
                                 
-                                if success_count == len(photo_paths):
+                                progress(0.8, desc="Завершение операции...")
+                                
+                                if success_count == len(photo_pairs):
                                     gr.Info("Все файлы успешно сохранены")
                                 else:
-                                    gr.Warning(f"Сохранено {success_count} из {len(photo_paths)} файлов")
-
-                                return None, None
+                                    gr.Warning(f"Сохранено {success_count} из {len(photo_pairs)} файлов")
                                 
-                            except (IndexError, TypeError) as e:
-                                logger.warning(f"Ошибка в именах: {e}")
-                                gr.Warning("Ошибка в именах. Пожалуйста, проверьте корректность названий.")
-                                return None, None
+                                progress(1.0, desc="Готово!")
+                                return [], []
+                                
+                            except Exception as e:
+                                logger.error(f"Ошибка при сохранении: {str(e)}")
+                                gr.Warning(f"Ошибка при сохранении: {str(e)}")
+                                progress(1.0, desc="Ошибка!")
+                                return [], []
 
                         save_btn.click(
-                            save_fn, 
-                            inputs=[translated_names_df, photo_tuple, save_dir], 
-                            outputs=[translated_names_df, photo_tuple]
+                            fn=save_fn,
+                            inputs=[translated_names_df, photo_tuple, save_dir],
+                            outputs=[photo_tuple, translated_names_df],  # Обновляем оба компонента
+                            show_progress=True
+                        ).then(
+                            lambda: None,  # Пустая функция для сброса progress bar
+                            None,
+                            None,
+                            js="() => {document.querySelector('.progress-bar').style.width = '0%';}"  # Сброс progress bar через JavaScript
                         )
 
         return renaming_tab

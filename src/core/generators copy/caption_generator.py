@@ -9,7 +9,6 @@ class CaptionGenerator():
         self.used_model = CaptioningModelCreator(captioning_model_name, device)
         self.device = device
 
-
     def generate_caption(self, photo_path, photo_name):
         """Генерация наименования изображения"""
         # Обрабатываем изображение
@@ -33,7 +32,6 @@ class CaptionGenerator():
         logger.info(f"Сгенерировано наименование для {photo_name}: {filtered_caption}")
         return filtered_caption
 
-
     def process_photo(self, photo_path, photo_name):
         """Обработка изображения"""
         image = Image.open(photo_path)
@@ -48,6 +46,4 @@ class CaptionGenerator():
 
         logger.info(f"{photo_name} обрабатывается")
         return inputs
-    
-
     

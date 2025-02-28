@@ -1,3 +1,4 @@
+# src\core\constants\web.py
 TRANSLATION_LANGUAGES = {
     "Afrikaans": "af_ZA", "Arabic": "ar_AR",
     "Azerbaijani": "az_AZ", "Bengali": "bn_IN",

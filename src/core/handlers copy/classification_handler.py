@@ -4,8 +4,6 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-import torch
-
 
 from core.generators.segment_generator import SegmentGenerator
 from core.generators.translation_generator import TranslationGenerator
@@ -37,16 +35,10 @@ class ClassificationHandler(BaseHandler):
         photo_name = Path(photo_path).name
         yield f"Обработка: {photo_name}"
         
-        # Оптимизированный вызов с освобождением памяти
-        with torch.no_grad():
-            detections = cls._segmentor.generate_segments(photo_path, photo_name)
-            main_object = cls._segmentor.get_main_object(detections)
-            translated = cls._translator.translate(main_object, "en_XX", target_language)
+        detections = cls._segmentor.generate_segments(photo_path, photo_name)
+        main_object = cls._segmentor.get_main_object(detections)
+        translated = cls._translator.translate(main_object, "en_XX", target_language)
         
-        # Принудительная очистка памяти
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            
         yield (index, (main_object, translated))
 
 

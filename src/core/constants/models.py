@@ -1,10 +1,10 @@
+# src\core\constants\models.py
 CAPTIONING_MODEL_NAMES = {
     "git-base-coco": ("microsoft/git-base-coco", "AutoModelForCausalLM"),
     "git-large-coco": ("microsoft/git-large-coco", "AutoModelForCausalLM"),
     "blip-image-captioning-base": ("Salesforce/blip-image-captioning-base", "BlipForConditionalGeneration"),
     "blip-image-captioning-large": ("Salesforce/blip-image-captioning-large", "BlipForConditionalGeneration"),
-    "vit-gpt2-image-captioning": ("nlpconnect/vit-gpt2-image-captioning", "VisionEncoderDecoderModel"),
-    "Qwen2-VL-7B-Instruct-GPTQ-Int4": ("Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4", "Qwen2VLForConditionalGeneration")
+    "vit-gpt2-image-captioning": ("nlpconnect/vit-gpt2-image-captioning", "VisionEncoderDecoderModel")
 }
 
 TRANSLATION_MODEL_NAMES = {

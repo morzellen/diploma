@@ -1,6 +1,4 @@
 # src\core\generators\segment_generator.py
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 import re
 from typing import Dict, List, Tuple
 from core.utils.get_logger import logger
@@ -11,7 +9,6 @@ class SegmentGenerator():
     def __init__(self, segmentation_model_name, device):
         self.used_model = SegmentationModelCreator(segmentation_model_name, device)
         self.device = device
-
 
     def generate_segments(self, photo_path: str, photo_name: str) -> List[Tuple[str, List[float]]]:
         """Генерация сегментов изображения"""
@@ -53,7 +50,6 @@ class SegmentGenerator():
             logger.error(f"Ошибка при генерации сегментов для {photo_name}: {str(e)}")
             return []
 
-
     def process_photo(self, photo_path: str, photo_name: str):
         """Обработка изображения"""
         try:
@@ -82,22 +78,25 @@ class SegmentGenerator():
             logger.error(f"Ошибка при обработке {photo_name}: {str(e)}")
             raise
 
-
     def get_box_area(self, coords: List[float]) -> float:
         """Вычисляет площадь ограничивающей рамки"""
         width = coords[2] - coords[0]
         height = coords[3] - coords[1]
         return width * height
 
-
     def get_main_object(self, detections: List[Tuple[str, List[float]]]) -> str:
-        """Векторизованный расчет площадей"""
+        """Определяет главный объект на изображении по площади сегмента"""
         if not detections:
             return "unknown"
+            
+        main_object = "unknown"
+        max_area = 0
         
-        areas = [self.get_box_area(coords) for _, coords in detections]
-        max_index = areas.index(max(areas))
-        return detections[max_index][0]
-              
-
+        for obj_class, coords in detections:
+            area = self.get_box_area(coords)
+            if area > max_area:
+                max_area = area
+                main_object = obj_class
+        
+        return main_object
         

@@ -1,4 +1,3 @@
-# src\core\creators\translation_model_creator.py
 from core.utils.get_logger import logger
 from core.constants.models import TRANSLATION_MODEL_NAMES
 from transformers import (AutoProcessor, AutoTokenizer,
@@ -11,7 +10,6 @@ class TranslationModelCreator:
         self.device = device
         self.processor, self.model, self.tokenizer = self._load_model()
     
-
     def _load_model(self):
         """Загрузка модели, процессора и токенизатора"""
         if self.translating_model_name not in TRANSLATION_MODEL_NAMES:
@@ -35,5 +33,3 @@ class TranslationModelCreator:
 
         logger.info(f"Модель {self.translating_model_name} успешно загружена")
         return processor, model, tokenizer
-
-

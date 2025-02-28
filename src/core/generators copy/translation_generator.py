@@ -8,10 +8,12 @@ class TranslationGenerator:
     def __init__(self, translating_model_name, device):
         self.used_model = TranslationModelCreator(translating_model_name, device)
 
+    # def set_languages(self, src_lang, tgt_lang) -> None:
+    #     """Изменение исходного и целевого языков перевода."""
+    #     logger.info(f"Языки перевода изменены: исходный - {src_lang}, целевой - {tgt_lang}")
 
     def _unpack_lang_str(self, tgt_lang_str) -> str:
         return TRANSLATION_LANGUAGES[tgt_lang_str]
-
 
     @lru_cache(maxsize=100)
     def translate(self, text: str, src_lang: str, tgt_lang: str) -> str:
@@ -34,5 +36,3 @@ class TranslationGenerator:
         translated = ''.join(translated)
         logger.info(f"Успешный перевод: '{text}' -> '{translated}'")
         return translated
-
-

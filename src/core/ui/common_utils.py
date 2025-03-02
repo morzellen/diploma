@@ -269,13 +269,17 @@ def save_processing_results(
         
         # Формирование путей
         image_paths = [
-            Path(original_images[idx][0]) 
-            if isinstance(original_images[idx], tuple) 
+            Path(original_images[idx][0])
+            if isinstance(original_images[idx], tuple)
             else Path(original_images[idx])
             for idx in filtered_indices
         ]
         
         progress_tracker(0.3, desc="Saving files...")
+        
+        os.makedirs("results", exist_ok=True) if not os.path.exists("results") else None
+
+        progress_tracker(0.7, desc="Preparing paths...")
 
         str_paths = [str(p) for p in image_paths]
         save_results = save_handler(final_names.tolist(), str_paths, output_dir)
@@ -286,7 +290,7 @@ def save_processing_results(
         if success_count == len(image_paths):
             gr.Info(f"Successfully saved {success_count} files")
         else:
-            gr.Warning(f"Failed to save {len(image_paths)-success_count} files")
+            gr.Warning(f"Saved {success_count} files")
 
         progress_tracker(1.0, desc="Operation completed!")
 
@@ -329,4 +333,5 @@ def clear_temporary_data() -> List:
             logger.error(f"Cleanup error: {str(error)}")
 
     return []
+
 

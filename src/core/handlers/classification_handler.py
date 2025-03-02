@@ -1,5 +1,4 @@
 # src\core\handlers\classification_handler.py
-import shutil
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -11,18 +10,16 @@ from core.generators.segment_generator import SegmentGenerator
 from core.generators.translation_generator import TranslationGenerator
 from core.handlers.base_handler import BaseHandler
 from core.utils.get_logger import logger
-from core.utils.get_device import device
 
 
 class ClassificationHandler(BaseHandler):
     _segmentor = None
     _translator = None
 
-
     @classmethod
     def initialize_models(cls, seg_model, trans_model):
-        cls._segmentor = SegmentGenerator(seg_model, device)
-        cls._translator = TranslationGenerator(trans_model, device)
+        cls._segmentor = SegmentGenerator(seg_model)
+        cls._translator = TranslationGenerator(trans_model)
 
 
     @classmethod
@@ -74,27 +71,11 @@ class ClassificationHandler(BaseHandler):
                 for path in paths:
                     dest = class_dir / path.name
                     futures.append(executor.submit(
-                        _safe_copy_file, 
+                        super()._safe_copy_file, 
                         path, 
                         dest
                     ))
             
             return [future.result() for future in as_completed(futures)]
-
-
-def _safe_copy_file(src: Path, dest: Path) -> str:
-    """Потокобезопасное копирование файла с проверкой"""
-    try:
-        if not src.exists():
-            return f"Ошибка: файл не найден {src}"
-            
-        if dest.exists():
-            return f"Файл уже существует: {dest}"
-            
-        shutil.copy(str(src), str(dest))
-        return f"Успешно сохранён: {dest}"
-        
-    except Exception as e:
-        return f"Ошибка копирования {src}: {e}"
     
 

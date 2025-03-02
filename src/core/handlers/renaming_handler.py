@@ -8,7 +8,6 @@ from core.generators.caption_generator import CaptionGenerator
 from core.generators.translation_generator import TranslationGenerator
 from core.handlers.base_handler import BaseHandler
 from core.utils.get_logger import logger
-from core.utils.get_device import device
 
 
 class RenamingHandler(BaseHandler):
@@ -18,8 +17,8 @@ class RenamingHandler(BaseHandler):
 
     @classmethod
     def initialize_models(cls, caption_model, trans_model):
-        cls._caption_generator = CaptionGenerator(caption_model, device)
-        cls._translator = TranslationGenerator(trans_model, device)
+        cls._caption_generator = CaptionGenerator(caption_model)
+        cls._translator = TranslationGenerator(trans_model)
 
 
     @classmethod
@@ -34,7 +33,7 @@ class RenamingHandler(BaseHandler):
         photo_name = Path(photo_path).name
         yield f"Обработка: {photo_name}"
         
-        original_name = cls._caption_generator.generate_caption(photo_path, photo_name)
+        original_name = cls._caption_generator.generate(photo_path, photo_name)
         translated = cls._translator.translate(original_name, "en_XX", target_language)
         
         yield (index, (original_name, translated))
@@ -62,7 +61,7 @@ class RenamingHandler(BaseHandler):
                 dest = save_path / f"{final_name}{path.suffix}"
                 
                 futures.append(executor.submit(
-                    _safe_copy_file,
+                    super()._safe_copy_file,
                     path,
                     dest
                 ))
@@ -70,19 +69,4 @@ class RenamingHandler(BaseHandler):
             return [f.result() for f in as_completed(futures)]
 
 
-def _safe_copy_file(src: Path, dest: Path) -> str:
-    """Унифицированная функция копирования из базового обработчика"""
-    try:
-        if not src.exists():
-            return f"Ошибка: файл не найден {src}"
-            
-        if dest.exists():
-            return f"Файл уже существует: {dest}"
-            
-        shutil.copy(str(src), str(dest))
-        return f"Успешно сохранён: {dest}"
-        
-    except Exception as e:
-        return f"Ошибка копирования {src}: {e}"
-    
 

@@ -34,13 +34,13 @@ class RenamingHandler(BaseHandler):
         yield f"Обработка: {photo_name}"
         
         original_name = cls._caption_generator.generate(photo_path, photo_name)
-        translated = cls._translator.translate(original_name, "en_XX", target_language)
+        translated = cls._translator.generate(original_name, "en_XX", target_language)
         
         yield (index, (original_name, translated))
 
 
-    @staticmethod
-    def save_photo(new_names, photo_paths, save_dir):
+    @classmethod
+    def save_photo(cls, new_names, photo_paths, save_dir):
         """Сохранение переименованных изображений с оптимизацией IO операций"""
         save_path = Path(save_dir)
         if len(photo_paths) > 1:
@@ -61,7 +61,7 @@ class RenamingHandler(BaseHandler):
                 dest = save_path / f"{final_name}{path.suffix}"
                 
                 futures.append(executor.submit(
-                    super()._safe_copy_file,
+                    cls._safe_copy_file,
                     path,
                     dest
                 ))

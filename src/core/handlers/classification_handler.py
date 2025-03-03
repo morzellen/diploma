@@ -38,17 +38,13 @@ class ClassificationHandler(BaseHandler):
         with torch.no_grad():
             detections = cls._segmentor.generate_segments(photo_path, photo_name)
             main_object = cls._segmentor.get_main_object(detections)
-            translated = cls._translator.translate(main_object, "en_XX", target_language)
-        
-        # Принудительная очистка памяти
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            translated = cls._translator.generate(main_object, "en_XX", target_language)
             
         yield (index, (main_object, translated))
 
 
-    @staticmethod
-    def save_photo(class_names, photo_paths, save_dir):
+    @classmethod
+    def save_photo(cls, class_names, photo_paths, save_dir):
         """Сохранение классифицированных изображений с оптимизацией IO операций"""
         save_path = Path(save_dir) / 'classified_photos'
         save_path.mkdir(parents=True, exist_ok=True)
@@ -71,7 +67,7 @@ class ClassificationHandler(BaseHandler):
                 for path in paths:
                     dest = class_dir / path.name
                     futures.append(executor.submit(
-                        super()._safe_copy_file, 
+                        cls._safe_copy_file, 
                         path, 
                         dest
                     ))

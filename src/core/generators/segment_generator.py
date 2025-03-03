@@ -73,8 +73,7 @@ class SegmentGenerator():
             return []
         finally:
             # Очистка памяти CUDA
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            self.handle_memory()
 
     def _parse_detections(self, parsed_answer):
         """Векторизованная обработка результатов детекции"""

@@ -4,7 +4,6 @@ import shutil
 from typing import Generator
 from pathlib import Path
 from typing_extensions import Literal
-from core.utils.get_device import device
 
 class BaseHandler(ABC):
 

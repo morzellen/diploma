@@ -66,21 +66,6 @@ class CaptioningModelCreator:
                 raise
 
         return self._model_cache[cache_key]
-
-    def generate(self, pixel_values, **kwargs):
-        """Инкапсуляция генерации текста"""
-        with torch.no_grad():
-            return self.model.generate(
-                pixel_values=pixel_values.to(self.device),
-                **kwargs
-            )
-
-    def decode(self, generated_ids):
-        """Декодирование результатов"""
-        return self.tokenizer.batch_decode(
-            generated_ids.cpu(), 
-            skip_special_tokens=True
-        )[0].strip()
     
 
     

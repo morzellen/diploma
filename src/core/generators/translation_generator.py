@@ -2,12 +2,13 @@
 from functools import lru_cache
 import torch
 from core.creators.translation_model_creator import TranslationModelCreator
+from core.generators.base_generator import BaseGenerator
 from core.utils.get_logger import logger
 from core.constants.web import TRANSLATION_LANGUAGES
 
-class TranslationGenerator:
-    def __init__(self, model_name, device):
-        self.used_model = TranslationModelCreator(model_name, device)
+class TranslationGenerator(BaseGenerator):
+    def __init__(self, model_name):
+        self.used_model = TranslationModelCreator(model_name, self.device)
         self.lang_cache = {}
         self._precache_language_ids()
     
@@ -19,7 +20,7 @@ class TranslationGenerator:
     
 
     @lru_cache(maxsize=500)
-    def translate(self, text: str, src_lang: str, tgt_lang_str: str) -> str:
+    def generate(self, text: str, src_lang: str, tgt_lang_str: str) -> str:
         """Оптимизированный перевод текста"""
         try:
             tgt_lang = TRANSLATION_LANGUAGES[tgt_lang_str]

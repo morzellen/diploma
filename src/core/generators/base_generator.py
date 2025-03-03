@@ -1,23 +1,24 @@
 # src\core\generators\base_generator.py
-from typing import Literal
-import torch
+from typing import Literal, ClassVar
 from abc import ABC, abstractmethod
-from torch.cuda import empty_cache as cuda_empty_cache
+from torch.cuda import empty_cache
 from core.utils.get_device import get_device
 
 class BaseGenerator(ABC):
     """Abstract base class for all generation components."""
     
-    def __init__(self, device: Literal["cpu", "cuda"] = get_device) -> None:
-        self.device = device
-        
+    device: ClassVar[Literal["cuda", "cpu"]] = get_device()
+    
+    @classmethod
     @abstractmethod
-    def generate(self, *args, **kwargs):
+    def generate(cls, *args, **kwargs):
         """Main generation method to be implemented by subclasses"""
         pass
         
-    @staticmethod
-    def handle_memory() -> None:
+    @classmethod
+    def handle_memory(cls) -> None:
         """Clean up GPU memory if available"""
-        if torch.cuda.is_available():
-            cuda_empty_cache()
+        if cls.device == "cuda":
+            empty_cache()
+
+

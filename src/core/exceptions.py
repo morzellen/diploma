@@ -7,3 +7,7 @@ class ImageProcessingError(Exception):
 class CaptionGenerationError(Exception):
     """Исключение, возникающее при ошибках генерации описания."""
     pass
+
+class SegmenatationGenerationError(Exception):
+    """Исключение, возникающее при ошибках генерации описания."""
+    pass

@@ -18,10 +18,10 @@ class CaptioningModelCreator:
     def __init__(self, captioning_model_name, device):
         self.captioning_model_name = captioning_model_name
         self.device = device
-        self.processor, self.model, self.tokenizer = self._load_cached_model()
+        self.processor, self.model, self.tokenizer = self._load_model()
 
-    def _load_cached_model(self):
-        """Кэшированная загрузка модели с оптимизациями"""
+    def _load_model(self):
+        """Загрузка модели"""
         cache_key = (self.captioning_model_name, self.device)
 
         if cache_key not in self._model_cache:

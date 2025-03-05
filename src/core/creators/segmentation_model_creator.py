@@ -11,10 +11,10 @@ class SegmentationModelCreator:
     def __init__(self, segmentation_model_name, device):
         self.segmentation_model_name = segmentation_model_name
         self.device = device
-        self.processor, self.model = self._load_cached_model()
+        self.processor, self.model = self._load_model()
 
-    def _load_cached_model(self):
-        """Кэшированная загрузка модели с оптимизациями для GPU"""
+    def _load_model(self):
+        """Загрузка модели"""
         cache_key = (self.segmentation_model_name, self.device)
         
         if cache_key not in SegmentationModelCreator._model_cache:

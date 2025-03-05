@@ -1,18 +1,34 @@
+# src/core/utils/get_logger.py
 import os
 import logging
+import sys
 from datetime import datetime
 
 FORMAT = '%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s'
 
-logging.basicConfig(format=FORMAT)
-
-log_filename = f"../logs/log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
-
-os.makedirs(os.path.dirname(log_filename), exist_ok=True)
-
-handler = logging.FileHandler(log_filename, encoding='utf-8')
-handler.setFormatter(logging.Formatter(FORMAT))
-
 logger = logging.getLogger('main')
-logger.setLevel(logging.INFO)
-logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)  # Устанавливаем минимальный уровень логирования
+
+# Создаем папку для логов
+log_dir = "../logs"
+os.makedirs(log_dir, exist_ok=True)
+
+# Файловый обработчик (пишет все сообщения от DEBUG и выше)
+file_handler = logging.FileHandler(
+    filename=os.path.join(log_dir, f"log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"),
+    encoding='utf-8'
+)
+file_handler.setFormatter(logging.Formatter(FORMAT))
+file_handler.setLevel(logging.DEBUG)  # В файл пишем только DEBUG и выше
+
+# Консольный обработчик (выводит в терминал)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(logging.Formatter(FORMAT))
+stream_handler.setLevel(logging.INFO)  # В консоль выводим INFO и выше
+
+# Добавляем обработчики к логгеру
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
+# Отключаем propagation для избежания дублирования
+logger.propagate = False

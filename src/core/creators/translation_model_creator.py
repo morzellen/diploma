@@ -12,11 +12,11 @@ class TranslationModelCreator:
     def __init__(self, model_name, device):
         self.model_name = model_name
         self.device = device
-        self.processor, self.tokenizer, self.model = self._load_cached_model()
+        self.processor, self.tokenizer, self.model = self._load_model()
     
 
-    def _load_cached_model(self):
-        """Кэшированная загрузка модели"""
+    def _load_model(self):
+        """Загрузка модели"""
         cache_key = (self.model_name, self.device)
         
         if cache_key not in TranslationModelCreator._model_cache:

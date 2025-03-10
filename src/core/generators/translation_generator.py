@@ -29,7 +29,7 @@ class TranslationGenerator(BaseGenerator):
         try:
             for lang_code, lang_name in TRANSLATION_LANGUAGES.items():
                 self.lang_cache[lang_name] = self.model.tokenizer.lang_code_to_id[lang_name]
-                logger.debug(f"Кэширован язык: {lang_name} -> ID: {self.lang_cache[lang_name]}")
+                # logger.debug(f"Кэширован язык: {lang_name} -> ID: {self.lang_cache[lang_name]}")
             logger.info(f"Зарегистрировано языков: {len(self.lang_cache)}")
         except KeyError as ke:
             logger.error(f"Отсутствует языковой код в токенизаторе: {ke}", exc_info=True)

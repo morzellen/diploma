@@ -1,11 +1,9 @@
 # src\core\ui\tabs\classification_tab.py
 import gradio as gr
-
+from core.utils.get_logger import logger
 from core.handlers.classification_handler import ClassificationHandler
-
 from core.constants.web import TRANSLATION_LANGUAGES
 from core.constants.models import SEGMENTATION_MODEL_NAMES, TRANSLATION_MODEL_NAMES
-
 from core.ui.logic.decorators import create_processing_tab, create_save_decorator
 from core.ui.logic.ui_utils import initialize_photo_gallery, update_button_states, select_directory
 from core.ui.logic.cancellation import cancel_operation
@@ -78,7 +76,11 @@ def create_classification_tab():
 
                         @create_processing_tab(ClassificationHandler, "классификации")
                         def generic_process_classification(photo_tuple, segmentation_model, translation_model, tgt_lang_str):
-                            pass
+                            try:
+                                logger.info(f"Запуск классификации с моделями: {segmentation_model}/{translation_model}")
+                            except Exception as e:
+                                logger.critical(f"Ошибка инициализации обработки: {e}", exc_info=True)
+                                raise
 
                         process_event = classify_btn.click(
                             fn=lambda is_processing: update_button_states(is_processing, classify_btn, cancel_btn),
@@ -91,7 +93,12 @@ def create_classification_tab():
                         ).then(
                             lambda is_processing: update_button_states(is_processing, classify_btn, cancel_btn),
                             inputs=[gr.State(False)],
-                            outputs=[classify_btn, cancel_btn]
+                            outputs=[classify_btn, cancel_btn],
+                            show_progress=False
+                        ).then(
+                            lambda: gr.Info("Классификация завершена успешно!"),
+                            None,
+                            None
                         )
 
                         cancel_btn.click(
@@ -106,24 +113,36 @@ def create_classification_tab():
                             fn=lambda current: select_directory("Выберите папку для сохранения классов", current),
                             inputs=[save_dir],
                             outputs=save_dir,
+                        ).then(
+                            lambda path: gr.Info(f"Выбрана директория: {path}") if path else None,
+                            inputs=[save_dir],
+                            outputs=None
                         )
 
                         save_btn = gr.Button("Сохранить классы", size='sm')
 
                         @create_save_decorator(ClassificationHandler, "Класс", "Неизвестный_класс")
                         def generic_save_classification(df_data, photo_tuple, save_dir):
-                            pass
+                            try:
+                                logger.info(f"Сохранение результатов в {save_dir}")
+                            except Exception as e:
+                                logger.error(f"Ошибка подготовки сохранения: {e}", exc_info=True)
+                                raise
 
                         save_btn.click(
                             fn=generic_save_classification,
                             inputs=[classes_df, photo_tuple, save_dir],
-                            outputs=[photo_tuple, classes_df],  # Указаны выходные компоненты, но обновления не будет
+                            outputs=[photo_tuple, classes_df],
                             show_progress=True,
                         ).then(
                             lambda: None,
                             None,
                             None,
                             js="() => {document.querySelector('.progress-bar').style.width = '0%';}"
+                        ).then(
+                            lambda: gr.Info("Сохранение завершено успешно!"),
+                            None,
+                            None
                         )
 
                         clear_temp_btn = gr.Button("Очистить временную директорию Gradio", size='sm')
@@ -131,6 +150,10 @@ def create_classification_tab():
                             fn=clear_temporary_data,
                             inputs=None,
                             outputs=[]
+                        ).then(
+                            lambda: gr.Info("Временные данные очищены"),
+                            None,
+                            None
                         )
                         
                         clear_components_btn = gr.Button("Cбросить компоненты", size='sm')
@@ -138,6 +161,11 @@ def create_classification_tab():
                             fn=lambda: ([],[]),
                             inputs=None,
                             outputs=[photo_tuple, classes_df]
+                        ).then(
+                            lambda: gr.Info("Компоненты сброшены"),
+                            None,
+                            None
                         )
 
         return classification_tab
+    

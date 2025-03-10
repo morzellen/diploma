@@ -2,40 +2,39 @@
 chcp 65001 > nul
 setlocal enabledelayedexpansion
 
-:: Проверка и установка Python 3.11.8
-python --version 2>&1 | find "3.11.8" > nul
-if %errorlevel% neq 0 (
-    echo Установите Python 3.11.8 с официального сайта: https://www.python.org/downloads/release/python-3118/
-    pause
-    exit /b 1
-)
-
-:: Создание виртуального окружения
+:: Создание и активация venv
 if not exist "venv\" (
     echo Создание виртуального окружения...
     python -m venv venv
 )
-
-:: Активация venv
 call venv\Scripts\activate.bat
 
-:: Установка библиотек
-echo Проверка зависимостей...
-pip install -r installed_libs.txt
-
-:: Проверка CUDA
-echo Проверка поддержки CUDA...
-nvidia-smi 2>nul
+:: Обновление pip и установка зависимостей
+python -m pip install --upgrade pip --no-cache-dir
+echo Установка библиотек...
+pip install -r installed_libs.txt --no-cache-dir
 if %errorlevel% neq 0 (
-    echo ВНИМАНИЕ: CUDA-совместимая видеокарта не обнаружена или драйверы не установлены
-    echo Рекомендуется установить CUDA Toolkit с https://developer.nvidia.com/cuda-downloads
-    timeout /t 5
+    echo Ошибка установки зависимостей! Проверьте файл installed_libs.txt
+    pause
+    exit /b 1
+)
+
+echo Установка torch...
+pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu126
+if %errorlevel% neq 0 (
+    echo Ошибка установки torch! Проверьте файл installed_libs.txt
+    pause
+    exit /b 1
 )
 
 :: Запуск приложения
-echo Запуск приложения...
 cd src
 python main.py
+if %errorlevel% neq 0 (
+    echo Ошибка запуска приложения!
+    cd ..
+    pause
+    exit /b 1
+)
 cd ..
-
 pause

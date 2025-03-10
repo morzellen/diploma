@@ -1,11 +1,11 @@
 # src/core/generators/segment_generator.py
 from __future__ import annotations
-from pathlib import Path
+import contextlib
 from typing import List, Optional, Tuple
+from transformers import BatchEncoding
 
 import torch
 from PIL import Image, UnidentifiedImageError
-from transformers import BatchEncoding
 
 from core.creators.segmentation_model_creator import SegmentationModelCreator
 from core.generators.base_generator import BaseGenerator
@@ -43,14 +43,19 @@ class SegmentGenerator(BaseGenerator):
         Raises:
             SegmenatationGenerationError: При ошибках обработки
         """
-        image_name = image_name or Path(image_path).name
         logger.debug(f"Начало обработки {image_name}")
 
         try:
             image = self._process_image(image_path, image_name)
-            inputs = self._prepare_inputs(image)
-            outputs = self._generate_segments(inputs)
-            result = self._postprocess(outputs, image.size, image_name)
+
+            with torch.inference_mode():
+            # Автокаст только для CUDA
+                with torch.autocast(device_type=self.device) if self.device == "cuda" else contextlib.nullcontext():
+                    inputs = self._prepare_inputs(image)
+                    outputs = self._generate_segments(inputs)
+
+            detections = self._postprocess(outputs, image.size, image_name)
+            result = self._get_main_object(detections)
             
             logger.info(f"Успешная генерация для {image_name} | Результат: {result}")
             return result
@@ -83,38 +88,40 @@ class SegmentGenerator(BaseGenerator):
         """
         try:
             with Image.open(image_path) as img:
-                # if img.mode not in ('RGB', 'L'):
-                if img.mode != 'RGB':
+                if img.mode not in ('RGB', 'L'):
                     logger.warning(
                         f"Конвертация изображения {image_name} из режима {img.mode} в RGB"
                     )
                     img = img.convert('RGB')
-                
+
+                MAX_SIZE = 512  # Оптимальный размер для CPU
+                img.thumbnail((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
+
+                # возвращаем PIL.ImageFile.ImageFile вместо PIL.JpegImagePlugin.JpegImageFile
+                img.load() # выделяет память для изображения и загружает его данные
+
                 logger.debug(
                     f"Изображение {image_name} загружено | "
                     f"Размер: {img.size} | Исходный режим: {img.mode}"
                 )
-                
                 return img
             
         except (UnidentifiedImageError, OSError) as e:
             logger.error(f"Некорректное изображение: {image_name}", exc_info=True)
-            raise ImageProcessingError from e
+            raise ImageProcessingError(f"Ошибка загрузки изображения {image_name}: {str(e)}") from e
 
     def _prepare_inputs(self, image: Image.Image) -> BatchEncoding:
         """Подготовка данных для модели."""
-        return self.model_creator.processor(
+        inputs = self.model_creator.processor(
             text="<OD>",
-            images=[image],
+            images=image, 
             return_tensors="pt",
             padding=True
-        ).to(self.device, non_blocking=True)
+        )
+        return inputs.to(self.device, non_blocking=True)
         
     def _generate_segments(self, inputs: BatchEncoding) -> torch.Tensor:
         """Генерация сегментов.
-        
-        Args:
-            inputs (BatchEncoding): Обработанное изображение в виде тензора.
         
         Returns:
             torch.Tensor: Сгенерированные идентификаторы сегментов.
@@ -125,17 +132,18 @@ class SegmentGenerator(BaseGenerator):
             f"max_new_tokens={params['max_new_tokens']}, num_beams={params['num_beams']}"
         )
         
-        with torch.inference_mode(), torch.autocast(device_type=self.device):
-            try:
-                return self.model_creator.model.generate(
-                    **inputs,
-                    max_new_tokens=params['max_new_tokens'],
-                    num_beams=params['num_beams'],
-                    early_stopping=True,
-                )
-            except RuntimeError as e:
-                logger.error(f"Ошибка генерации: {str(e)}", exc_info=True)
-                raise SegmenatationGenerationError("Ошибка во время генерации сегментов") from e
+        try:
+            return self.model_creator.model.generate(
+                **inputs,
+                max_new_tokens=params['max_new_tokens'],
+                num_beams=params['num_beams'],
+                early_stopping=True,
+                no_repeat_ngram_size=3,  # для уменьшения вычислений
+                length_penalty=0.8        # Ускорение генерации
+            )
+        except RuntimeError as e:
+            logger.error(f"Ошибка генерации: {str(e)}", exc_info=True)
+            raise SegmenatationGenerationError("Ошибка во время генерации сегментов") from e
 
     def _postprocess(self, outputs: torch.Tensor, image_size: Tuple[int, int], image_name: str) -> List[Tuple[str, List[float]]]:
         """Постобработка результатов."""
@@ -159,10 +167,9 @@ class SegmentGenerator(BaseGenerator):
         if od_results := parsed_data.get('<OD>'):
             for label, bbox in zip(od_results['labels'], od_results['bboxes']):
                 detections.append((label.lower(), [round(coord, 2) for coord in bbox]))
-        return detections
+        return [d for d in detections if d[1][2] > 0.1 and d[1][3] > 0.1]  # Фильтр мелких объектов
 
-    @staticmethod
-    def get_main_object(detections: List[Tuple[str, List[float]]]) -> str:
+    def _get_main_object(self, detections: List[Tuple[str, List[float]]]) -> str:
         """Определение главного объекта по площади."""
         if not detections:
             return "unknown"
@@ -175,3 +182,4 @@ class SegmentGenerator(BaseGenerator):
                 max_area = area
                 main_obj = obj
         return main_obj
+    

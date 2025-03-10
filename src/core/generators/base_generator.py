@@ -20,5 +20,8 @@ class BaseGenerator(ABC):
         """Clean up GPU memory if available"""
         if cls.device == "cuda":
             empty_cache()
+        else:
+            import gc
+            gc.collect()
 
 

@@ -1,57 +1,35 @@
 # src\core\creators\segmentation_model_creator.py
 import torch
-from core.utils.get_logger import logger
-from core.constants.models import SEGMENTATION_MODEL_NAMES
-from transformers import AutoProcessor, AutoModelForCausalLM
+from transformers import AutoProcessor
+from core.creators.base_creator import BaseCreator
 
-class SegmentationModelCreator:
+class SegmentationModelCreator(BaseCreator):
     _model_cache = {}
     
-
-    def __init__(self, segmentation_model_name, device):
-        self.segmentation_model_name = segmentation_model_name
+    def __init__(self, model_name, device):
+        self.model_name = model_name
         self.device = device
         self.processor, self.model = self._load_model()
 
+    @property
+    def MODEL_NAMES(self):
+        from core.constants.models import SEGMENTATION_MODEL_NAMES
+        return SEGMENTATION_MODEL_NAMES
+
+    def _load_components(self, model_path, model_class):
+        processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+        model = self._load_base_model(model_path, model_class, trust_remote_code=True)
+        model = self._apply_special_optimizations(model)
+        return processor, model
+
+    def _apply_special_optimizations(self, model):
+        if self.device == 'cuda':
+            model = model.to(memory_format=torch.channels_last)
+        return model
+
     def _load_model(self):
-        """Загрузка модели"""
-        cache_key = (self.segmentation_model_name, self.device)
-        
-        if cache_key not in SegmentationModelCreator._model_cache:
-            if self.segmentation_model_name not in SEGMENTATION_MODEL_NAMES:
-                raise ValueError(f"Модель {self.segmentation_model_name} не поддерживается")
-
-            model_path, model_class_name = SEGMENTATION_MODEL_NAMES[self.segmentation_model_name]
-            model_class = globals()[model_class_name]
-            
-            try:
-                # Загрузка процессора
-                processor = AutoProcessor.from_pretrained(
-                    model_path,
-                    trust_remote_code=True
-                )
-
-                # Конфигурация загрузки модели
-                torch_dtype = torch.float16 if self.device == 'cuda' else None
-                model = model_class.from_pretrained(
-                    model_path,
-                    trust_remote_code=True,
-                    torch_dtype=torch_dtype
-                ).to(self.device)
-
-                # Оптимизации для GPU
-                if self.device == 'cuda':
-                    model = model.to(memory_format=torch.channels_last)
-                    if torch.__version__ >= "2.0.0":
-                        model = torch.compile(model)
-
-                logger.info(f"Модель {self.segmentation_model_name} загружена")
-                SegmentationModelCreator._model_cache[cache_key] = (processor, model)
-                
-            except Exception as e:
-                logger.error(f"Ошибка загрузки модели: {e}")
-                raise
-
-        return SegmentationModelCreator._model_cache[cache_key]
-    
-
+        cache_key = (self.model_name, self.device)
+        if cache_key not in self._model_cache:
+            model_path, model_class = self._get_model_path_and_class()
+            self._model_cache[cache_key] = self._load_components(model_path, model_class)
+        return self._model_cache[cache_key]

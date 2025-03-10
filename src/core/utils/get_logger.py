@@ -24,7 +24,7 @@ file_handler.setLevel(logging.DEBUG)  # В файл пишем только DEBU
 # Консольный обработчик (выводит в терминал)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(logging.Formatter(FORMAT))
-stream_handler.setLevel(logging.INFO)  # В консоль выводим INFO и выше
+stream_handler.setLevel(logging.DEBUG)  # В консоль выводим INFO и выше
 
 # Добавляем обработчики к логгеру
 logger.addHandler(file_handler)

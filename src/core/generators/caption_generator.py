@@ -1,6 +1,6 @@
 # src/core/generators/caption_generator.py
 from __future__ import annotations
-from pathlib import Path
+import contextlib
 import re
 from typing import ClassVar, Optional, Tuple
 
@@ -62,13 +62,17 @@ class CaptionGenerator(BaseGenerator):
         Raises:
             CaptionGenerationError: Если произошла ошибка при обработке изображения или генерации подписи.
         """
-        image_name = image_name or Path(image_path).name
         logger.debug(f"Начало обработки изображения: {image_name}")
         
         try:
             image = self._process_image(image_path, image_name)
-            inputs = self._prepare_inputs(image)
-            outputs = self._generate_caption(inputs)
+
+            with torch.inference_mode():
+            # Автокаст только для CUDA
+                with torch.autocast(device_type=self.device) if self.device == "cuda" else contextlib.nullcontext():
+                    inputs = self._prepare_inputs(image)
+                    outputs = self._generate_caption(inputs)
+
             result = self._postprocess(outputs, image_name)
             
             logger.info(f"Успешная генерация для {image_name} | Результат: {result}")
@@ -102,22 +106,29 @@ class CaptionGenerator(BaseGenerator):
         """
         try:
             with Image.open(image_path) as img:
+
                 if img.mode not in ('RGB', 'L'):
                     logger.warning(
                         f"Конвертация изображения {image_name} из режима {img.mode} в RGB"
                     )
                     img = img.convert('RGB')
                 
+                MAX_SIZE = 512  # Оптимальный размер для CPU
+                img.thumbnail((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
+
+                # возвращаем PIL.ImageFile.ImageFile вместо PIL.JpegImagePlugin.JpegImageFile
+                img.load() # выделяет память для изображения и загружает его данные
+
                 logger.debug(
                     f"Изображение {image_name} загружено | "
                     f"Размер: {img.size} | Исходный режим: {img.mode}"
                 )
-                
+
                 return img
             
         except (UnidentifiedImageError, OSError) as e:
             logger.error(f"Некорректное изображение: {image_name}", exc_info=True)
-            raise ImageProcessingError from e
+            raise ImageProcessingError(f"Ошибка загрузки изображения {image_name}: {str(e)}") from e
 
     def _prepare_inputs(self, image: Image.Image) -> BatchEncoding:
         """Подготовка данных для модели."""
@@ -140,18 +151,19 @@ class CaptionGenerator(BaseGenerator):
             f"Начало генерации подписи с параметрами: "
             f"max_length={params['max_length']}, num_beams={params['num_beams']}"
         )
-        
-        with torch.inference_mode(), torch.autocast(device_type=self.device):
-            try:
-                return self.model_creator.model.generate(
-                    **inputs,
-                    max_length=params['max_length'],
-                    num_beams=params['num_beams'],
-                    early_stopping=True
-                )
-            except RuntimeError as e:
-                logger.error(f"Ошибка генерации: {str(e)}", exc_info=True)
-                raise CaptionGenerationError("Ошибка во время генерации подписи") from e
+
+        try:
+            return self.model_creator.model.generate(
+                **inputs,
+                max_length=params['max_length'],
+                num_beams=params['num_beams'],
+                early_stopping=True,
+                no_repeat_ngram_size=3,  # для уменьшения вычислений
+                length_penalty=0.8        # Ускорение генерации
+            )
+        except RuntimeError as e:
+            logger.error(f"Ошибка генерации: {str(e)}", exc_info=True)
+            raise CaptionGenerationError("Ошибка во время генерации подписи") from e
 
     def _postprocess(self, generated_ids: torch.Tensor, image_name: str) -> str:
         """Постобработка сгенерированной подписи.

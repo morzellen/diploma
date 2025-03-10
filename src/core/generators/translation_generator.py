@@ -66,5 +66,3 @@ class TranslationGenerator(BaseGenerator):
         )
         return decoded[0] if decoded else ""
     
-
-    

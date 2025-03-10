@@ -10,6 +10,6 @@ def cancel_operation() -> List:
     """Обрабатывает запрос на отмену текущей операции."""
     state = ProcessingState()
     state.set_cancellation_state(True)
-    logger.info("Operation cancellation requested")
-    gr.Info("Operation cancellation requested")
+    logger.info("Запрошена отмена операции, пожалуйста подождите.")
+    gr.Info("Запрошена отмена операции, пожалуйста подождите.")
     return []

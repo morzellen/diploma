@@ -66,13 +66,8 @@ class CaptionGenerator(BaseGenerator):
         
         try:
             image = self._process_image(image_path, image_name)
-
-            with torch.inference_mode():
-            # Автокаст только для CUDA
-                with torch.autocast(device_type=self.device) if self.device == "cuda" else contextlib.nullcontext():
-                    inputs = self._prepare_inputs(image)
-                    outputs = self._generate_caption(inputs)
-
+            inputs = self._prepare_inputs(image)
+            outputs = self._generate_caption(inputs)
             result = self._postprocess(outputs, image_name)
             
             logger.info(f"Успешная генерация для {image_name} | Результат: {result}")
@@ -153,14 +148,17 @@ class CaptionGenerator(BaseGenerator):
         )
 
         try:
-            return self.model_creator.model.generate(
-                **inputs,
-                max_length=params['max_length'],
-                num_beams=params['num_beams'],
-                early_stopping=True,
-                no_repeat_ngram_size=3,  # для уменьшения вычислений
-                length_penalty=0.8        # Ускорение генерации
-            )
+            with torch.inference_mode():
+            # Автокаст только для CUDA
+                with torch.autocast(device_type=self.device) if self.device == "cuda" else contextlib.nullcontext():
+                    return self.model_creator.model.generate(
+                        **inputs,
+                        max_length=params['max_length'],
+                        num_beams=params['num_beams'],
+                        early_stopping=True,
+                        no_repeat_ngram_size=3,  # для уменьшения вычислений
+                        length_penalty=0.8        # Ускорение генерации
+                    )
         except RuntimeError as e:
             logger.error(f"Ошибка генерации: {str(e)}", exc_info=True)
             raise CaptionGenerationError("Ошибка во время генерации подписи") from e

@@ -47,13 +47,8 @@ class SegmentGenerator(BaseGenerator):
 
         try:
             image = self._process_image(image_path, image_name)
-
-            with torch.inference_mode():
-            # Автокаст только для CUDA
-                with torch.autocast(device_type=self.device) if self.device == "cuda" else contextlib.nullcontext():
-                    inputs = self._prepare_inputs(image)
-                    outputs = self._generate_segments(inputs)
-
+            inputs = self._prepare_inputs(image)
+            outputs = self._generate_segments(inputs)
             detections = self._postprocess(outputs, image.size, image_name)
             result = self._get_main_object(detections)
             
@@ -133,14 +128,17 @@ class SegmentGenerator(BaseGenerator):
         )
         
         try:
-            return self.model_creator.model.generate(
-                **inputs,
-                max_new_tokens=params['max_new_tokens'],
-                num_beams=params['num_beams'],
-                early_stopping=True,
-                no_repeat_ngram_size=3,  # для уменьшения вычислений
-                length_penalty=0.8        # Ускорение генерации
-            )
+            with torch.inference_mode():
+            # Автокаст только для CUDA
+                with torch.autocast(device_type=self.device) if self.device == "cuda" else contextlib.nullcontext():
+                    return self.model_creator.model.generate(
+                        **inputs,
+                        max_new_tokens=params['max_new_tokens'],
+                        num_beams=params['num_beams'],
+                        early_stopping=True,
+                        no_repeat_ngram_size=3,  # для уменьшения вычислений
+                        length_penalty=0.8        # Ускорение генерации
+                    )
         except RuntimeError as e:
             logger.error(f"Ошибка генерации: {str(e)}", exc_info=True)
             raise SegmenatationGenerationError("Ошибка во время генерации сегментов") from e

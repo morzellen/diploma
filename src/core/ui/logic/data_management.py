@@ -1,3 +1,4 @@
+# src\core\ui\logic\data_management.py
 """Модуль для управления данными и сохранения результатов."""
 
 import os

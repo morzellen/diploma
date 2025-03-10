@@ -1,3 +1,4 @@
+# src\core\ui\logic\ui_utils.py
 """Модуль утилит для работы с пользовательским интерфейсом."""
 
 from typing import List, Tuple

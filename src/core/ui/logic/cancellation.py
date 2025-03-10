@@ -1,3 +1,4 @@
+# src\core\ui\logic\cancellation.py
 """Модуль для обработки отмены операций."""
 
 from typing import List

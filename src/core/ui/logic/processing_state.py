@@ -1,3 +1,4 @@
+# src\core\ui\logic\processing_state.py
 """Модуль для управления состоянием обработки."""
 
 import threading

@@ -1,3 +1,4 @@
+# src\core\ui\logic\image_processing.py
 """Модуль для обработки изображений."""
 
 import gradio as gr

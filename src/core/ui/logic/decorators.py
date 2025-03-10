@@ -1,3 +1,4 @@
+# src\core\ui\logic\decorators.py
 """Модуль декораторов для обработки и сохранения данных."""
 
 from functools import wraps

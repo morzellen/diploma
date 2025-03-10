@@ -1,3 +1,4 @@
+# src\core\ui\gradio_interface.py
 import gradio as gr
 
 from core.utils.get_logger import logger

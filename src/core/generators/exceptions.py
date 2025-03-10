@@ -8,6 +8,10 @@ class CaptionGenerationError(Exception):
     """Исключение, возникающее при ошибках генерации описания."""
     pass
 
-class SegmenatationGenerationError(Exception):
+class SegmentationGenerationError(Exception):
     """Исключение, возникающее при ошибках генерации описания."""
+    pass
+
+class TranslationGenerationError(Exception):
+    """Исключение, возникающее при ошибках генерации перевода."""
     pass

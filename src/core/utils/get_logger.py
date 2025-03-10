@@ -1,3 +1,4 @@
+# src\core\utils\get_logger.py
 import os
 import logging
 import sys
@@ -7,6 +8,17 @@ from datetime import datetime
 FORMAT = '%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s'
 # Упрощённый формат для консоли
 SIMPLE_FORMAT = '[%(levelname)s] %(message)s'
+
+# Добавляем кастомный уровень SUCCESS
+SUCCESS = 25
+logging.addLevelName(SUCCESS, "SUCCESS")
+
+class CustomLogger(logging.getLoggerClass()):
+    def success(self, msg, *args, **kwargs):
+        if self.isEnabledFor(SUCCESS):
+            self._log(SUCCESS, msg, args, **kwargs)
+
+logging.setLoggerClass(CustomLogger)
 
 # Создаём логгер
 logger = logging.getLogger('main')
@@ -35,3 +47,22 @@ logger.addHandler(stream_handler)
 
 # Отключаем propagation для избежания дублирования
 logger.propagate = False
+
+# Добавляем стилизованный вывод для уровня SUCCESS в консольный обработчик
+class ColoredFormatter(logging.Formatter):
+    FORMATS = {
+        logging.DEBUG: "[DEBUG] %(message)s",
+        logging.INFO: "\033[94m[INFO]\033[0m %(message)s",
+        SUCCESS: "\033[92m[SUCCESS]\033[0m %(message)s",
+        logging.WARNING: "\033[93m[WARNING]\033[0m %(message)s",
+        logging.ERROR: "\033[91m[ERROR]\033[0m %(message)s",
+        logging.CRITICAL: "\033[41m\033[97m[CRITICAL]\033[0m %(message)s"
+    }
+
+    def format(self, record):
+        fmt = self.FORMATS.get(record.levelno, self._style._fmt)
+        formatter = logging.Formatter(fmt)
+        return formatter.format(record)
+
+# Обновляем консольный обработчик
+stream_handler.setFormatter(ColoredFormatter())

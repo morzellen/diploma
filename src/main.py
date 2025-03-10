@@ -1,3 +1,5 @@
+# src\main.py
+
 # Запуск приложения
 if __name__ == "__main__":
     from core.utils.get_logger import logger

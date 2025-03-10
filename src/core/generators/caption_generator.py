@@ -11,7 +11,7 @@ from transformers import BatchEncoding
 from core.creators.captioning_model_creator import CaptioningModelCreator
 from core.generators.base_generator import BaseGenerator
 from core.utils.get_logger import logger
-from core.exceptions import ImageProcessingError, CaptionGenerationError
+from core.generators.exceptions import ImageProcessingError, CaptionGenerationError
 
 
 class CaptionGenerator(BaseGenerator):

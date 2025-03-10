@@ -10,7 +10,7 @@ from PIL import Image, UnidentifiedImageError
 from core.creators.segmentation_model_creator import SegmentationModelCreator
 from core.generators.base_generator import BaseGenerator
 from core.utils.get_logger import logger
-from core.exceptions import ImageProcessingError, SegmenatationGenerationError
+from core.generators.exceptions import ImageProcessingError, SegmenatationGenerationError
 
 
 class SegmentGenerator(BaseGenerator):

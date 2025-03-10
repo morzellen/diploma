@@ -2,12 +2,14 @@
 import gradio as gr
 
 from core.handlers.classification_handler import ClassificationHandler
+
 from core.constants.web import TRANSLATION_LANGUAGES
 from core.constants.models import SEGMENTATION_MODEL_NAMES, TRANSLATION_MODEL_NAMES
-from core.ui.common_utils import (create_processing_tab, create_save_decorator,
-                                  initialize_photo_gallery, update_button_states,
-                                  cancel_operation, select_directory, clear_temporary_data
-                                  )
+
+from core.ui.logic.decorators import create_processing_tab, create_save_decorator
+from core.ui.logic.ui_utils import initialize_photo_gallery, update_button_states, select_directory
+from core.ui.logic.cancellation import cancel_operation
+from core.ui.logic.data_management import clear_temporary_data
 
 def create_classification_tab():
     with gr.Blocks() as classification_tab:

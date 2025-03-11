@@ -1,7 +1,7 @@
 # Автоматизированная система переименования и классификации изображений на основе их содержания с использованием глубоких нейронных сетей
 
 ![Python](https://img.shields.io/badge/Python-3.9.0-blue)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.6.0_CUDA12.1-red)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.6.0_CUDA12.6-red)
 ![Gradio](https://img.shields.io/badge/Gradio-5.0.1-orange)
 
 ![Процесс автоматической классификации](0311_3_.gif)
@@ -22,7 +22,7 @@
   - Просмотр оригинальных и обработанных названий изображений
 - **Адаптивная обработка**:
   - Автоматическое определение GPU/CPU
-  - Поддержка CUDA 12.1 и MPS (Metal)
+  - Поддержка CUDA 12.6 и MPS (Metal)
 - **Экспорт данных**:
   - Сохранение в иерархические папки
   - Резервное копирование оригиналов
@@ -31,12 +31,12 @@
 
 ### Требования
 - Python 3.9–3.11
-- NVIDIA GPU (рекомендуется) + [CUDA Toolkit 12.1](https://developer.nvidia.com/cuda-downloads)
+- NVIDIA GPU (рекомендуется) + [CUDA Toolkit 12.6](https://developer.nvidia.com/cuda-downloads)
 - 4GB+ оперативной памяти
 
 ### Инструкция:
 1. Установите [Python 3.9–3.11](https://www.python.org/downloads/) для выполнения скриптов.
-2. Установите [CUDA Toolkit 12.1](https://developer.nvidia.com/cuda-downloads) для GPU-ускорения
+2. Установите [CUDA Toolkit 12.6](https://developer.nvidia.com/cuda-downloads) для GPU-ускорения
 3. Клонируйте репозиторий:
    ```bash
    git clone https://github.com/morzellen/renamer-classifier-images-using-ai.git

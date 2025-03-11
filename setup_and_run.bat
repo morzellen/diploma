@@ -2,36 +2,36 @@
 chcp 65001 > nul
 setlocal enabledelayedexpansion
 
-:: РЎРѕР·РґР°РЅРёРµ Рё Р°РєС‚РёРІР°С†РёСЏ venv
+:: Создание и активация venv
 if not exist "venv\" (
-    echo РЎРѕР·РґР°РЅРёРµ РІРёСЂС‚СѓР°Р»СЊРЅРѕРіРѕ РѕРєСЂСѓР¶РµРЅРёСЏ...
+    echo Создание виртуального окружения...
     python -m venv venv
 )
 call venv\Scripts\activate.bat
 
-:: РћР±РЅРѕРІР»РµРЅРёРµ pip Рё СѓСЃС‚Р°РЅРѕРІРєР° Р·Р°РІРёСЃРёРјРѕСЃС‚РµР№
+:: Обновление pip и установка зависимостей
 python -m pip install --upgrade pip --no-cache-dir
-echo РЈСЃС‚Р°РЅРѕРІРєР° Р±РёР±Р»РёРѕС‚РµРє...
+echo Установка библиотек...
 pip install -r installed_libs.txt --no-cache-dir
 if %errorlevel% neq 0 (
-    echo РћС€РёР±РєР° СѓСЃС‚Р°РЅРѕРІРєРё Р·Р°РІРёСЃРёРјРѕСЃС‚РµР№! РџСЂРѕРІРµСЂСЊС‚Рµ С„Р°Р№Р» installed_libs.txt
+    echo Ошибка установки зависимостей! Проверьте файл installed_libs.txt
     pause
     exit /b 1
 )
 
-echo РЈСЃС‚Р°РЅРѕРІРєР° torch...
+echo Установка torch...
 pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu126
 if %errorlevel% neq 0 (
-    echo РћС€РёР±РєР° СѓСЃС‚Р°РЅРѕРІРєРё torch! РџСЂРѕРІРµСЂСЊС‚Рµ С„Р°Р№Р» installed_libs.txt
+    echo Ошибка установки torch! Проверьте файл installed_libs.txt
     pause
     exit /b 1
 )
 
-:: Р—Р°РїСѓСЃРє РїСЂРёР»РѕР¶РµРЅРёСЏ
+:: Запуск приложения
 cd src
 python main.py
 if %errorlevel% neq 0 (
-    echo РћС€РёР±РєР° Р·Р°РїСѓСЃРєР° РїСЂРёР»РѕР¶РµРЅРёСЏ!
+    echo Ошибка запуска приложения!
     cd ..
     pause
     exit /b 1

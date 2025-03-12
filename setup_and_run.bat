@@ -8,6 +8,7 @@ if not exist "venv\" (
     python -m venv venv
 )
 call venv\Scripts\activate.bat
+echo %VIRTUAL_ENV%
 
 :: Обновление pip и установка зависимостей
 python -m pip install --upgrade pip --no-cache-dir

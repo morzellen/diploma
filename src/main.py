@@ -12,7 +12,7 @@ def main() -> Optional[int]:
     # Настройка парсера аргументов
     parser = argparse.ArgumentParser(description='Запуск интерфейса обработки изображений')
     parser.add_argument('--port', type=int, default=7860, help='Порт для запуска сервера')
-    parser.add_argument('--host', type=str, default='0.0.0.0', help='Хост для запуска сервера')
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='Хост для запуска сервера')
     parser.add_argument('--debug', action='store_true', help='Режим отладки')
     args = parser.parse_args()
 
